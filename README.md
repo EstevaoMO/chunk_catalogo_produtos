@@ -49,7 +49,7 @@ Este projeto implementa um pipeline de processamento de texto que:
 1. **Clone o repositório**
    ```bash
    git clone https://github.com/EstevaoMO/chunk_catalogo_produtos.git
-   cd chunk_catalogo
+   cd chunk_catalogo_produtos
    ```
 
 2. **Crie um ambiente virtual**

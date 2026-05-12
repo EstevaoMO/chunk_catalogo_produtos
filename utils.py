@@ -1,6 +1,4 @@
-import json
-import requests
-import re
+import pandas as pd
 
 
 def calcular_totais(dados_brutos: dict) -> dict:
@@ -37,3 +35,14 @@ def achatar_precos(precos: dict) -> dict:
                 valor_float = 0.0
             metadado_precos[chave] = valor_float
     return metadado_precos
+
+def normalizar_notacao(df, colunas_para_normalizar) -> pd.DataFrame:
+    """
+    Normaliza algumas colunas que estão em notação científica, convertendo-as para o formato numérico padrão.
+    """
+
+    for coluna in colunas_para_normalizar:
+        df[coluna] = df[coluna].apply(lambda x: x.replace(',', '.'))
+        df[coluna] = df[coluna].apply(lambda x: f"{float(x):.0f}" if not ("-" in x or "ISENTO" in x) else x)
+    
+    return df

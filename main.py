@@ -3,7 +3,8 @@ import json
 import pandas as pd
 from datetime import datetime
 
-from gerar_chunks import normalizar_notacao, gerar_chunk
+from gerar_chunks import gerar_chunk
+from utils import normalizar_notacao
 from db import obter_colecao
 
 def main() -> None:
@@ -22,7 +23,7 @@ def main() -> None:
     
 
     # Criando os chunks normalizados a partir do CSV
-    df = pd.read_csv("./Catalogo-Produtos.csv", dtype={'CÓDIGO SAP': str, 'CÓDIGO EAN': str}, sep=";")
+    df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", dtype={'CÓDIGO SAP': str, 'CÓDIGO EAN': str}, sep=";")
     
     colunas_para_normalizar = [
         "CÓDIGO SAP",
@@ -30,7 +31,6 @@ def main() -> None:
         "REGISTRO MS"
     ]
     df_normalizado = normalizar_notacao(df, colunas_para_normalizar)
-
     df_normalizado.apply(gerar_chunk, axis=1)
 
     # Iniciando o banco vetorial e indexando os chunks

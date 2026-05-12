@@ -1,16 +1,5 @@
 import pandas as pd
 
-def normalizar_notacao(df, colunas_para_normalizar) -> pd.DataFrame:
-    """
-    Normaliza algumas colunas que estão em notação científica, convertendo-as para o formato numérico padrão.
-    """
-
-    for coluna in colunas_para_normalizar:
-        df[coluna] = df[coluna].apply(lambda x: x.replace(',', '.'))
-        df[coluna] = df[coluna].apply(lambda x: f"{float(x):.0f}" if not ("-" in x or "ISENTO" in x) else x)
-    
-    return df
-
 
 def gerar_chunk(row) -> None:
     """
@@ -46,18 +35,15 @@ def gerar_chunk(row) -> None:
         json.dump(chunk, f, ensure_ascii=False, indent=2)
 
 
-def main() -> None:
-    df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", dtype={'CÓDIGO SAP': str, 'CÓDIGO EAN': str}, sep=";")
-    
-    colunas_para_normalizar = [
-        "CÓDIGO SAP",
-        "CÓDIGO EAN",
-        "REGISTRO MS"
-    ]
-    df_normalizado = normalizar_notacao(df, colunas_para_normalizar)
-
-    df_normalizado.apply(gerar_chunk, axis=1)
-
-
 if __name__ == "__main__":
-    main()
+    # df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", dtype={'CÓDIGO SAP': str, 'CÓDIGO EAN': str}, sep=";")
+    
+    # colunas_para_normalizar = [
+    #     "CÓDIGO SAP",
+    #     "CÓDIGO EAN",
+    #     "REGISTRO MS"
+    # ]
+    # df_normalizado = normalizar_notacao(df, colunas_para_normalizar)
+
+    # df_normalizado.apply(gerar_chunk, axis=1)
+    pass

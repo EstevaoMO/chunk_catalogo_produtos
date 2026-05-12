@@ -48,9 +48,6 @@ def extrair_itens_do_prompt(prompt_usuario: str) -> dict:
     chave_icms = icms_uf["aliquotas_uf"].get(uf, "SP").get("chave_preco", "icms_18")
     chave_preco_tipo = f"preco_{chave_icms}_{tipo}"
 
-    print(f"UF: {uf} | ICMS: {chave_icms} | Tipo: {tipo} | Chave: {chave_preco_tipo}")
-    print(f"Itens: {itens}")
-
     return {
         "itens": itens,
         "chave_preco_tipo": chave_preco_tipo

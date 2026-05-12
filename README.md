@@ -86,7 +86,7 @@ O script irá:
 **1. Normalização de Dados**
 ```python
 from gerar_chunks import normalizar_notacao, gerar_chunk
-df = pd.read_csv("Catalogo-Produtos.csv", sep=";")
+df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", sep=";")
 df_normalizado = normalizar_notacao(df, colunas_para_normalizar)
 ```
 

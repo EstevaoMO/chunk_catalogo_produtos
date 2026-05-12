@@ -120,16 +120,15 @@ resposta = gerar_resposta(contexto)
       "nome": "ACICLOVIR 200MG COM BLX25",
       "codigo_sap": "1000001",
       "quantidade": 10,
-      "precos_por_uf": {
-        "RJ": {"icms": "18%", "valor": 45.90},
-        "SP": {"icms": "20%", "valor": 42.50}
-      }
+      "preco_unitario": 97.19,
+      "preco_total": 971.9
     }
   ],
   "cliente": {
     "tipo": "Pessoa Jurídica",
     "uf": "RJ"
-  }
+  },
+  "total": 971.9
 }
 ```
 

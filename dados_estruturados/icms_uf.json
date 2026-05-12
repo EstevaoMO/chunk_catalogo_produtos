@@ -1,0 +1,34 @@
+{
+    "metadados": {
+        "descrição": "ICMS por Unidade Federativa (UF) - Alíquotas e Chaves de Preço",
+        "data_atualizacao": "2024-06-01"
+    },
+    "aliquotas_uf": {
+        "AC": { "alíquota": 19.0, "chave_preco": "icms_20" },
+        "AL": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "AM": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "AP": { "alíquota": 18.0, "chave_preco": "icms_18" },
+        "BA": { "alíquota": 20.5, "chave_preco": "icms_20" },
+        "CE": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "DF": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "ES": { "alíquota": 17.0, "chave_preco": "icms_17" },
+        "GO": { "alíquota": 19.0, "chave_preco": "icms_20" },
+        "MA": { "alíquota": 23.0, "chave_preco": "icms_20" },
+        "MT": { "alíquota": 17.0, "chave_preco": "icms_17" },
+        "MS": { "alíquota": 17.0, "chave_preco": "icms_17" },
+        "MG": { "alíquota": 18.0, "chave_preco": "icms_18" },
+        "PB": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "PR": { "alíquota": 19.5, "chave_preco": "icms_20" },
+        "PE": { "alíquota": 20.5, "chave_preco": "icms_20" },
+        "PI": { "alíquota": 22.5, "chave_preco": "icms_20" },
+        "RN": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "RS": { "alíquota": 17.0, "chave_preco": "icms_17" },
+        "RJ": { "alíquota": 22.0, "chave_preco": "icms_20" },
+        "RO": { "alíquota": 19.5, "chave_preco": "icms_20" },
+        "RR": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "SC": { "alíquota": 17.0, "chave_preco": "icms_17" },
+        "SP": { "alíquota": 18.0, "chave_preco": "icms_18" },
+        "SE": { "alíquota": 20.0, "chave_preco": "icms_20" },
+        "TO": { "alíquota": 20.0, "chave_preco": "icms_20" }
+    }
+}

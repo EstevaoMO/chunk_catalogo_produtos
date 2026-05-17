@@ -2,10 +2,10 @@ import json
 
 import pandas as pd
 from datetime import datetime
-
+from pathlib import Path
 from gerar_chunks import gerar_chunk
 from utils import normalizar_notacao
-from db import obter_colecao
+from db import obter_colecao, obter_bm25
 
 def main() -> None:
     email_cliente = \
@@ -35,16 +35,21 @@ def main() -> None:
 
     # Iniciando o banco vetorial e indexando os chunks
     con_db = obter_colecao()
+    # Iniciando BM25
+    bm25, catalogo_bm25 = obter_bm25()
 
     # Gerando respostas
     from gerar_resposta import gerar_prompt_final, gerar_contexto_geral, gerar_resposta
 
-    contexto =  gerar_contexto_geral(email_cliente, colecao=con_db)
+    contexto = gerar_contexto_geral(email_cliente, colecao=con_db, bm25=bm25, catalogo_bm25=catalogo_bm25)
     prompt_final = gerar_prompt_final(contexto, email_cliente)
+    print('PROMPT FINAL:')
+    print(prompt_final)
     resposta = gerar_resposta(prompt_final)
 
-    print(resposta)
-    with open(f"./resultados/res_{str(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))}.json", "w") as f:
+    respostas_dir = Path("./chunks")
+    respostas_dir.mkdir(exist_ok=True)
+    with open(f"./resultados/res_{str(datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))}.json", "w", encoding="utf-8") as f:
         f.write((json.dumps(resposta, ensure_ascii=False, indent=2)))
 
 

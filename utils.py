@@ -46,3 +46,18 @@ def normalizar_notacao(df, colunas_para_normalizar) -> pd.DataFrame:
         df[coluna] = df[coluna].apply(lambda x: f"{float(x):.0f}" if not ("-" in x or "ISENTO" in x) else x)
     
     return df
+
+def tokenizar_ngrams(texto: str, n: int = 3) -> list:
+    """Quebra o texto em n-grams e palavras inteiras para o BM25."""
+    texto = str(texto).lower()
+    if len(texto) < n:
+        return [texto]
+    
+    tokens = []
+    # Pedaços de 3 letras
+    for i in range(len(texto) - n + 1):
+        tokens.append(texto[i:i+n])
+    
+    # Palavras inteiras
+    tokens.extend(texto.split())
+    return tokens

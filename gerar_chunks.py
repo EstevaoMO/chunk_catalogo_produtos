@@ -1,5 +1,5 @@
 import pandas as pd
-
+from pathlib import Path
 
 def gerar_chunk(row) -> None:
     """
@@ -30,7 +30,9 @@ def gerar_chunk(row) -> None:
         "registro_ms": str(row["REGISTRO MS"])
     }
     
-    with open(f"./chunks/chunk_{str(row['CÓDIGO SAP']).strip()}-{str(row['CÓDIGO EAN']).strip()}.json", "w") as f:
+    chunks_dir = Path("./chunks")
+    chunks_dir.mkdir(exist_ok=True)
+    with open(f"./chunks/chunk_{str(row['CÓDIGO SAP']).strip()}-{str(row['CÓDIGO EAN']).strip()}.json", "w", encoding="utf-8") as f:
         import json
         json.dump(chunk, f, ensure_ascii=False, indent=2)
 

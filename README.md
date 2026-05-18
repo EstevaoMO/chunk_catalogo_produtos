@@ -2,6 +2,17 @@
 
 Automação inteligente para processamento de solicitações de orçamento de medicamentos. O sistema analisa emails de clientes, identifica produtos solicitados e gera orçamentos estruturados com preços e impostos por estado.
 
+## Sobre o trabalho
+Um trabalho referente ao 5º período da graduação de Ciência de Dados e Inteligência Artificial da IBMEC.
+Participantes:
+
+- Eduardo Peruzzo
+- Estevão Moraes
+- Gabriel Corrêa
+- Marcelle Lohane
+- Mateus Sachinho
+
+
 ## 📋 Visão Geral
 
 Este projeto implementa um pipeline de processamento de texto que:

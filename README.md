@@ -178,12 +178,6 @@ O projeto utiliza uma abordagem **RAG (Retrieval-Augmented Generation)** combina
 - Remove duplicatas mantendo relevância
 - Melhora acurácia para produtos encontrados
 
-## ⚙️ Otimizações Aplicadas
-
-- **Lazy Loading**: Modelos pesados carregam apenas quando necessário
-- **Caching**: Banco vetorial persistido para reutilização rápida
-- **Modelo Leve**: Gemma 3 1B (1.2GB)
-
 ## 📚 Documentação Adicional
 
 Para entender as técnicas de preparação de dados e otimizações específicas para o Gemma 3 1B, consulte **[MANUAL.md](MANUAL.md)**

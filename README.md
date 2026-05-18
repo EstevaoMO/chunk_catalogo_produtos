@@ -23,6 +23,7 @@ Este projeto implementa um pipeline de processamento de texto que:
 │   └── ...
 ├── dados_estruturados/          # Dados estruturados para consulta
 ├── resultados/                  # Orçamentos gerados (JSON)
+├── resultados_testes/           # Orçamentos gerados nos testes (JSON)
 ├── gerar_chunks.py              # Normalização e geração de chunks
 ├── db.py                        # Gerenciamento do banco vetorial
 ├── gerar_resposta.py            # Processamento de emails e geração de respostas
@@ -36,7 +37,9 @@ Este projeto implementa um pipeline de processamento de texto que:
 - **Pandas** - Processamento e manipulação de dados tabulares
 - **Chroma DB** - Banco de dados vetorial para busca semântica
 - **Sentence Transformers** - Embeddings semânticos (`all-MiniLM-L6-v2`)
-- **Chromadb** - Persistência e indexação de dados
+- **Ollama + Gemma 3 1B** - Modelo LLM local para processamento de linguagem natural
+- **BM25** - Busca léxica/fuzzy para produtos
+- **Rank-BM25** - Implementação Python do algoritmo BM25
 
 ## 📦 Instalação
 
@@ -80,6 +83,23 @@ O script irá:
 4. Criar/atualizar o banco vetorial
 5. Processar um email de exemplo (definido em `main.py`)
 6. Gerar um orçamento estruturado em `resultados/`
+
+### Configurar Modelo Local (Gemma 3 1B ou outro de sua preferẽncia)
+
+Para usar o Ollama com o modelo Gemma 3 1B:
+
+```bash
+# Instale o Ollama (https://ollama.ai)
+# Depois execute:
+ollama pull gemma:3b
+
+# Inicie o servidor Ollama
+ollama serve
+```
+
+> OBS: o mesmo processo pode ser feito via interface do LMStudio.
+
+O código está configurado para usar a API local em `http://localhost:1234/v1/chat/completions`
 
 ### Fluxo de Processamento
 
@@ -138,3 +158,44 @@ resposta = gerar_resposta(contexto)
 - Os preços são calculados automaticamente de acordo com a alíquota de ICMS do estado
 - O banco vetorial é persistido em `.vector_db/` para reutilização
 - Emails de exemplo podem ser configurados em `main.py`
+
+## 🔍 Sistema de Busca Híbrido
+
+O projeto utiliza uma abordagem **RAG (Retrieval-Augmented Generation)** combinando:
+
+### 1. **Busca Semântica (ChromaDB)**
+- Embeddings com `all-MiniLM-L6-v2`
+- Captura significado semântico dos produtos
+- Ideal para nomes comerciais, abreviações e variações
+
+### 2. **Busca Léxica (BM25)**
+- Tokens e n-gramas de 3 letras
+- Recuperação precisa por código SAP
+- Busca exata por componentes do nome
+
+### 3. **Fusão de Resultados**
+- Combina resultados das duas buscas
+- Remove duplicatas mantendo relevância
+- Melhora acurácia para produtos encontrados
+
+## ⚙️ Otimizações Aplicadas
+
+- **Lazy Loading**: Modelos pesados carregam apenas quando necessário
+- **Caching**: Banco vetorial persistido para reutilização rápida
+- **Modelo Leve**: Gemma 3 1B (1.2GB)
+
+## 📚 Documentação Adicional
+
+Para entender as técnicas de preparação de dados e otimizações específicas para o Gemma 3 1B, consulte **[MANUAL.md](MANUAL.md)**
+
+## 🐛 Troubleshooting
+
+| Problema | Solução |
+|----------|---------|
+| Ollama não conecta | Verifique se `ollama serve` está rodando em `localhost:1234` |
+| Chunks não encontrados | Certifique-se que `./chunks/` existe e contém arquivos `.json` |
+| Banco vetorial está lento | Recrie o banco com `obter_colecao(sobrescrever_banco=True)` |
+
+## 📄 Licença
+
+Este projeto é licenciado sob a MIT License - veja o arquivo LICENSE para detalhes.

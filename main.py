@@ -7,8 +7,7 @@ from gerar_chunks import gerar_chunk
 from utils import normalizar_notacao
 from db import obter_colecao, obter_bm25
 
-def main() -> None:
-    email_cliente = \
+email_cliente = \
     """
         Olá, gostaria de receber um orçamento dos seguintes produtos:
 
@@ -20,7 +19,10 @@ def main() -> None:
         José Pedidor
         JoseFarmacia - Rio de Janeiro - RJ
     """
-    
+
+def main() -> None:
+    with open("email_cliente.txt", "r", encoding="utf-8") as f:
+        email_cliente = f.read()
 
     # Criando os chunks normalizados a partir do CSV
     df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", dtype={'CÓDIGO SAP': str, 'CÓDIGO EAN': str}, sep=";")

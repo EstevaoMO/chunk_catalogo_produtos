@@ -102,7 +102,7 @@ Para usar o Ollama com o modelo Gemma 3 1B:
 ```bash
 # Instale o Ollama (https://ollama.ai)
 # Depois execute:
-ollama pull gemma:3b
+ollama pull gemma3:1b
 
 # Inicie o servidor Ollama
 ollama serve

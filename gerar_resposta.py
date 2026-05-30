@@ -52,9 +52,9 @@ def extrair_itens_do_prompt(prompt_usuario: str) -> dict:
     """
 
     resposta = requests.post(
-        "http://localhost:1234/v1/chat/completions",
+        "http://localhost:11434/v1/chat/completions",
         json={
-            "model": "local-model",
+            "model": "gemma3:4b",
             "messages": [{"role": "user", "content": prompt_completo}],
             "temperature": 0.1,
         }
@@ -70,7 +70,11 @@ def extrair_itens_do_prompt(prompt_usuario: str) -> dict:
     print("ITENS EXTRAÍDOS DO EMAIL:")
     print(dados)
 
-    uf = dados.get("uf", "SP").upper()
+
+    uf = dados.get("uf")
+
+    if uf is not None:
+        uf = uf.upper()
     tipo = dados.get("tipo", "pf")
     itens = dados.get("itens", [])
 
@@ -290,9 +294,9 @@ principio_ativo: AMOXICILINA TRIIDRATADA
 def gerar_resposta(pergunta: str) -> dict:
     """Envia prompt para Gemma 3 1B e retorna orçamento estruturado."""
     resposta = requests.post(
-        "http://localhost:1234/v1/chat/completions",
+        "http://localhost:11434/v1/chat/completions",
         json={
-            "model": "local-model",
+            "model": "gemma3:4b",
             "messages": [{"role": "user", "content": pergunta}],
             "temperature": 0.4,
         }

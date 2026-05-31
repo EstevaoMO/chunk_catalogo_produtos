@@ -6,10 +6,10 @@ Automação inteligente para processamento de solicitações de orçamento de me
 Um trabalho referente ao 5º período da graduação de Ciência de Dados e Inteligência Artificial da IBMEC.
 Participantes:
 
+- Marcelle Lohane
 - Eduardo Peruzzo
 - Estevão Moraes
 - Gabriel Corrêa
-- Marcelle Lohane
 - Mateus Sachinho
 
 
@@ -38,31 +38,36 @@ Este projeto implementa um pipeline de processamento de texto que:
 ├── gerar_chunks.py              # Normalização e geração de chunks
 ├── db.py                        # Gerenciamento do banco vetorial
 ├── gerar_resposta.py            # Processamento de emails e geração de respostas
+├── agent_server.py              # API FastAPI para integração com n8n
 ├── utils.py                     # Funções auxiliares
+├── workflow.json                # Fluxo n8n importável
 └── .vector_db/                  # Banco de dados vetorial (Chroma)
 ```
 
 ## 🛠️ Tecnologias Utilizadas
 
-- **Python 3.9+** - Linguagem de programação
+- **Python 3.12+** - Linguagem de programação
+- **FastAPI** - API para integração com o n8n
 - **Pandas** - Processamento e manipulação de dados tabulares
 - **Chroma DB** - Banco de dados vetorial para busca semântica
 - **Sentence Transformers** - Embeddings semânticos (`all-MiniLM-L6-v2`)
 - **Ollama + Gemma 3 1B** - Modelo LLM local para processamento de linguagem natural
 - **BM25** - Busca léxica/fuzzy para produtos
 - **Rank-BM25** - Implementação Python do algoritmo BM25
+- **n8n** - Orquestrador do fluxo de automação
 
 ## 📦 Instalação
 
 ### Pré-requisitos
-- Python 3.9 ou superior
-- pip (gerenciador de pacotes Python)
+- Python 3.12 ou superior
+- Ollama
+- n8n
 
 ### Passos
 
 1. **Clone o repositório**
    ```bash
-   git clone https://github.com/EstevaoMO/chunk_catalogo_produtos.git
+   git clone <repositorio>
    cd chunk_catalogo_produtos
    ```
 
@@ -94,53 +99,6 @@ O script irá:
 4. Criar/atualizar o banco vetorial
 5. Processar um email de exemplo (definido em `main.py`)
 6. Gerar um orçamento estruturado em `resultados/`
-
-### Configurar Modelo Local (Gemma 3 1B ou outro de sua preferẽncia)
-
-Para usar o Ollama com o modelo Gemma 3 1B:
-
-```bash
-# Instale o Ollama (https://ollama.ai)
-# Depois execute:
-ollama pull gemma3:1b
-
-# Inicie o servidor Ollama
-ollama serve
-```
-
-> OBS: o mesmo processo pode ser feito via interface do LMStudio.
-
-O código está configurado para usar a API local em `http://localhost:1234/v1/chat/completions`
-
-### Fluxo de Processamento
-
-**1. Normalização de Dados**
-```python
-from gerar_chunks import normalizar_notacao, gerar_chunk
-df = pd.read_csv("https://raw.githubusercontent.com/alvaroriz/datascience_datasets/refs/heads/main/Catalogo-Produtos.csv", sep=";")
-df_normalizado = normalizar_notacao(df, colunas_para_normalizar)
-```
-
-**2. Geração de Chunks**
-Cada linha do catálogo é convertida em um arquivo JSON contendo:
-- Informações do produto (código SAP, nome, princípio ativo)
-- Família e tipo de medicamento
-- Preços com diferentes alíquotas de ICMS por estado
-- Dados de registro
-
-**3. Indexação Vetorial**
-```python
-from db import obter_colecao, indexar_chunks_json
-colecao = obter_colecao()
-indexar_chunks_json(colecao, pasta_chunks="./chunks")
-```
-
-**4. Processamento de Email**
-```python
-from gerar_resposta import gerar_contexto_geral, gerar_prompt_final, gerar_resposta
-contexto = gerar_contexto_geral(email_cliente, colecao=colecao)
-resposta = gerar_resposta(contexto)
-```
 
 ## 📝 Exemplo de Saída
 
@@ -189,17 +147,173 @@ O projeto utiliza uma abordagem **RAG (Retrieval-Augmented Generation)** combina
 - Remove duplicatas mantendo relevância
 - Melhora acurácia para produtos encontrados
 
-## 📚 Documentação Adicional
+---
 
-Para entender as técnicas de preparação de dados e otimizações específicas para o Gemma 3 1B, consulte **[MANUAL.md](MANUAL.md)**
+# Instruções para Execução do Projeto no n8n
+
+## Pré-requisitos
+
+Instalar:
+* Python 3.12 ou superior
+* Ollama
+* n8n
+
+---
+
+## 1. Clonar o projeto
+
+```bash
+git clone <repositorio>
+cd chunk_catalogo_produtos
+```
+
+---
+
+## 2. Criar ambiente virtual
+
+Windows:
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+Linux/Mac:
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+---
+
+## 3. Instalar dependências
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 4. Instalar o modelo de IA
+
+Instalar o Ollama:  
+https://ollama.com
+
+Baixar o modelo:
+```bash
+ollama pull gemma3:1b
+```
+
+Verificar instalação:
+```bash
+ollama list
+```
+
+O modelo `gemma3:1b` deve aparecer na lista.
+
+---
+
+## 5. Iniciar o Ollama
+
+```bash
+ollama serve
+```
+
+Caso já esteja rodando, nenhuma ação adicional é necessária.
+
+---
+
+## 6. Iniciar a API
+
+Na pasta do projeto:
+```bash
+uvicorn agent_server:app --host 0.0.0.0 --port 8000
+```
+
+Verificar funcionamento — abrir no navegador:
+```
+http://localhost:8000/docs
+```
+
+A documentação da API deve aparecer.
+
+---
+
+## 7. Testar a API
+
+Na página Swagger (`/docs`), executar:
+
+**POST /processar**
+
+Exemplo de body:
+```json
+{
+  "email": "Preciso de orçamento de dipirona",
+  "salvar": false
+}
+```
+
+A API deve retornar um orçamento em JSON.
+
+---
+
+## 8. Executar o workflow n8n
+
+Abrir o n8n:
+```bash
+n8n
+```
+
+Acessar:
+```
+http://localhost:5678
+```
+
+Importar o arquivo:
+```
+workflow.json
+```
+
+Executar o workflow.
+
+---
+
+## ⚙️ Fluxo Executado
+
+O workflow realiza:
+
+1. Recebimento da solicitação de orçamento
+2. Envio da solicitação para a API FastAPI
+3. Consulta ao banco vetorial ChromaDB
+4. Busca híbrida utilizando BM25
+5. Processamento pelo modelo Gemma 3
+6. Geração do orçamento estruturado
+7. Retorno do orçamento ao usuário
+
+---
+
+## 🧰 Tecnologias Utilizadas
+
+* Python
+* FastAPI
+* Ollama
+* Gemma 3
+* ChromaDB
+* BM25
+* n8n
+* Pandas
+* Sentence Transformers
+
+---
 
 ## 🐛 Troubleshooting
 
 | Problema | Solução |
 |----------|---------|
-| Ollama não conecta | Verifique se `ollama serve` está rodando em `localhost:1234` |
+| Ollama não conecta | Verifique se `ollama serve` está rodando |
 | Chunks não encontrados | Certifique-se que `./chunks/` existe e contém arquivos `.json` |
 | Banco vetorial está lento | Recrie o banco com `obter_colecao(sobrescrever_banco=True)` |
+| Módulo não encontrado | Confirme que o ambiente virtual está ativado |
+| API não responde em :8000 | Verifique se o uvicorn está rodando sem erros no terminal |
 
 ## 📄 Licença
 

@@ -268,7 +268,7 @@ Acessar:
 http://localhost:5678
 ```
 
-Importar o arquivo:
+Importar o arquivo que já está dentro do repositório:
 ```
 workflow/agente_de_orcamentos.json
 ```

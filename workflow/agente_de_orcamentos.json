@@ -1,0 +1,135 @@
+{
+  "name": "agente_de_orcamentos",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/processar",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "=={{ $json.email.replace(/\\n/g, \" \").replace(/\\r/g, \" \") }}"
+            },
+            {
+              "name": "value",
+              "value": "false"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        96
+      ],
+      "id": "5b90c970-d2b8-4c88-a9fa-368f4dd1cd91",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "formTitle": "Solicitação de orçamento",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "email",
+              "fieldType": "textarea"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        -80,
+        96
+      ],
+      "id": "89710a90-5358-4eb6-ba9a-391c631ae4bd",
+      "name": "On form submission",
+      "webhookId": "27f1d0ae-dcba-4d13-a5b2-301647bc3eea"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $json;\n\nlet texto = ``;\n\ndata.itens.forEach(item => {\n  texto += `${item.produto}\\n`;\n  texto += `Qtd: ${item.quantidade} | Unit: R$ ${item.preco_unitario}\\n`;\n  texto += `Subtotal: R$ ${item.preco_total}\\n\\n`;\n});\n\ntexto += `--------------------\\n`;\ntexto += `CLIENTE: ${data.cliente.tipo} - ${data.cliente.uf}\\n`;\ntexto += `TOTAL: R$ ${data.total}\\n`;\n\nreturn [\n  {\n    json: {\n      texto,\n      email_original: $node[\"On form submission\"].json.email\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        96
+      ],
+      "id": "a0e36125-d9d1-402b-97a3-272be51bab12",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "🧾 Orçamento gerado com sucesso",
+        "completionMessage": "=<div style=\"background:#f5f5f5;padding:15px;border-radius:8px;\">\n<pre style=\"font-size:14px;white-space:pre-wrap;\">{{ $json.texto }}</pre>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        624,
+        96
+      ],
+      "id": "d8a7cd78-4921-4b03-b776-6345e4ff1f87",
+      "name": "Form",
+      "webhookId": "89fcb902-bc5e-4173-ab56-811180b9900b"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b74525af-1f39-4dd4-81a0-46e0a83300f6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "616bb5cfe9052754e4829d5236c38cac710e12346d007bf36da7fbf762e936ac"
+  },
+  "id": "WEP5gIK5TeaaubWc",
+  "tags": []
+}

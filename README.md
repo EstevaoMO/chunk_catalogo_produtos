@@ -270,7 +270,7 @@ http://localhost:5678
 
 Importar o arquivo:
 ```
-workflow.json
+workflow/agente_de_orcamentos.json
 ```
 
 Executar o workflow.

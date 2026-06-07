@@ -7,23 +7,23 @@
         "url": "=https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
       },
-      "id": "007879df-86c9-409d-955c-6181b883d216",
+      "id": "b82f17b6-bec6-4484-bfcb-7cca8db240a8",
       "name": "Deletar Colecao Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2720,
-        576
+        2176,
+        672
       ],
-      "executeOnce": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "3v17KreZ6RM9e3pR",
-          "name": "Qdrant Header"
-        }
-      }
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -42,21 +42,15 @@
           }
         }
       },
-      "id": "faca9bd9-6a48-41f6-a674-05a4cc266620",
+      "id": "74c1649f-95a1-4ec0-becb-ef17f9f143bd",
       "name": "Criar Colecao Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2944,
-        576
+        2400,
+        672
       ],
-      "executeOnce": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "3v17KreZ6RM9e3pR",
-          "name": "Qdrant Header"
-        }
-      }
+      "executeOnce": true
     },
     {
       "parameters": {
@@ -65,10 +59,10 @@
       "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
       "typeVersion": 1,
       "position": [
-        3600,
-        1008
+        3136,
+        640
       ],
-      "id": "29fb1999-525f-46d9-b877-6c516c3d6a96",
+      "id": "965c5453-de6f-4bbf-9daa-199c8277e65b",
       "name": "Token Splitter"
     },
     {
@@ -80,11 +74,12 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        2496,
-        576
+        1952,
+        672
       ],
-      "id": "de59c920-70b9-482c-9aee-36a717c33fe5",
-      "name": "Ler CSV"
+      "id": "bf986adb-90b7-43ba-88e7-83ef35c6c1e4",
+      "name": "Ler CSV",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -103,12 +98,12 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.5,
       "position": [
-        2272,
-        576
+        1728,
+        672
       ],
-      "id": "242c9a69-6992-4baf-8479-b0e15be62354",
+      "id": "8eeab6b6-d5ea-4a2f-bc44-7f9cc3df6fa1",
       "name": "Form enviar CSV",
-      "webhookId": "7ba03786-3a48-4757-914e-62a2e2e8020c"
+      "webhookId": "65bb666c-5763-49ce-9c7a-59ffb1559424"
     },
     {
       "parameters": {
@@ -117,11 +112,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3168,
-        576
+        2624,
+        672
       ],
-      "id": "76bf191a-7500-4966-b020-13a8d92ade3b",
-      "name": "Gerar chunks"
+      "id": "095b128d-731b-438f-ae05-9099f1a6cf6a",
+      "name": "Gerar chunks",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -137,17 +133,11 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        3424,
-        576
+        2928,
+        320
       ],
-      "id": "34699603-c1d8-4779-bc32-ac3d406226b1",
-      "name": "Inserir no Qdrant",
-      "credentials": {
-        "qdrantApi": {
-          "id": "ozX3YuoPvQo5DNSl",
-          "name": "Qdrant account"
-        }
-      }
+      "id": "d594d16b-0190-47b8-b6f8-6afe8ce125bc",
+      "name": "Inserir no Qdrant"
     },
     {
       "parameters": {
@@ -157,17 +147,12 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
       "typeVersion": 1,
       "position": [
-        3392,
-        800
+        2928,
+        688
       ],
-      "id": "02bfeba4-88b3-4132-9e49-53298f687f99",
+      "id": "77e0ad44-384d-42b5-a15d-25641f5adb32",
       "name": "Embeddings HuggingFace",
-      "credentials": {
-        "huggingFaceApi": {
-          "id": "nWPQSQPxRlJH3Fv9",
-          "name": "Hugging Face account"
-        }
-      }
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -220,11 +205,12 @@
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1.1,
       "position": [
-        3520,
-        800
+        3056,
+        496
       ],
-      "id": "d100fc60-e2cf-4056-8a99-9978f83b9db2",
-      "name": "Data Loader"
+      "id": "6d9c4c50-4a64-41ed-83e7-3e70e928d4a8",
+      "name": "Data Loader",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -250,18 +236,107 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3808,
-        576
+        3344,
+        320
       ],
-      "id": "eb10a4ba-be06-4930-8271-de48b3b9b984",
+      "id": "c4bf68fb-0b0f-4b84-b1b8-a0f9711e771c",
       "name": "Criar index SAP",
       "executeOnce": true,
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "3v17KreZ6RM9e3pR",
-          "name": "Qdrant Header"
-        }
-      }
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2192,
+        912
+      ],
+      "id": "c1c2443a-cbac-4bda-967b-a1a53379d147",
+      "name": "Stop and Error"
+    },
+    {
+      "parameters": {
+        "content": "## Tratamento de erros",
+        "height": 256,
+        "width": 1872,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        1904,
+        848
+      ],
+      "typeVersion": 1,
+      "id": "15d5b0f8-c209-4fc6-8ab7-4528e04ea07f",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "jsCode": "const erro = $input.first().json;\n\n// Tenta pegar o nome do arquivo do item original\nconst nomeArquivo = erro?.data[0]?.filename ?? 'desconhecido';\nconst tipoArquivo = erro?.data[0]?.mimetype ?? 'desconhecido';\n\nreturn {\n  \"erro\": `Falha no upload do arquivo.\\n` +\n  `Arquivo recebido: \"${nomeArquivo}\" (tipo: ${tipoArquivo})\\n` +\n  `Causa: ${erro?.error ?? 'Erro desconhecido no formulário'}\\n` +\n  `Verifique se o arquivo é um CSV válido e tente novamente.`\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2032,
+        912
+      ],
+      "id": "0380bddd-9a15-4189-a698-484789270f48",
+      "name": "Validar CSV"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $('Ler CSV').all();\nconst erros = [];\nconst resultados = [];\n\nitems.forEach((item, index) => {\n  try {\n    const data = Object.fromEntries(\n      Object.entries(item.json).map(([key, value]) => [\n        key.replace(/^\\uFEFF/, '').trim(), // trim() pega espaços extras também\n        value\n      ])\n    );\n\n    if (!data['APRESENTAÇÃO'] && !data['CÓDIGO SAP']) {\n      // Linha completamente vazia, ignora silenciosamente\n      return;\n    }\n\n    const conteudo_semantico = `${data['APRESENTAÇÃO'] ?? ''}`;\n\n    resultados.push({\n      json: {\n        conteudo_semantico,\n        sap: data['CÓDIGO SAP'],\n        nome: data['APRESENTAÇÃO'],\n        principio_ativo: data['PRINCIPIO ATIVO'],\n        familia: data['FAMÍLIA'],\n        ncm: data['NCM (CLASS FISCAL)'],\n        tipo: data['TIPO DE MEDICAMENTO'],\n        tarja: data['TARJA'],\n        qtde: data['QTDE'],\n        precos: {\n          icms_0:        { pf: data[\"ICMS 0 % (PF)\"],              pmc: data[\"ICMS 0 % (PMC)\"] },\n          icms_12:       { pf: data[\"ICMS 12 %  (PF)\"],            pmc: data[\"ICMS 12 % (PMC) \"] },\n          icms_17:       { pf: data[\"ICMS 17 % (PF)\"],             pmc: data[\"ICMS 17 % (PMC)\"] },\n          icms_175:      { pf: data[\"ICMS 17,5 % (PF)\"],           pmc: data[\"ICMS 17,5 % (PMC)\"] },\n          icms_18:       { pf: data[\"ICMS 18 %  (PF)\"],            pmc: data[\"ICMS 18 %  (PMC)\"] },\n          icms_20:       { pf: data[\"ICMS 20 % (PF)\"],             pmc: data[\"ICMS 20 % (PMC)\"] },\n          icms_17_ac_rr: { pf: data[\"ICMS 17 % (ALC) AC/RR (PF)\"], pmc: data[\"ICMS 17 % (ALC) AC/RR (PMC)\"] },\n          icms_175_ro:   { pf: data[\"ICMS 17,5 % (ALC) RO (PF)\"],  pmc: data[\"ICMS 17,5 % (ALC) RO (PMC)\"] },\n          icms_18_am_ap: { pf: data[\"ICMS 18 % (ALC) AM/AP (PF)\"], pmc: data[\"ICMS 18 % (ALC) AM/AP (PMC)\"] }\n        },\n        ean: data['CÓDIGO EAN'] ? String(data['CÓDIGO EAN']) : null,\n        registro_ms: data['REGISTRO MS'] ? String(data['REGISTRO MS']) : null\n      }\n    });\n  } catch (e) {\n    erros.push(`Linha ${index + 1}: ${e.message}`);\n  }\n});\n\nif (erros.length > 0 && resultados.length === 0) {\n  return {'erro': `Todas as linhas falharam no processamento:\\n${erros.join('\\n')}`\n}\n\nif (erros.length > 0) {\n  // Loga os erros parciais mas continua — você pode mudar isso para throw se quiser rigor total\n  console.log(`Avisos (${erros.length} linhas ignoradas):\\n${erros.join('\\n')}`);\n}\n\nreturn resultados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        912
+      ],
+      "id": "022508e8-9aaa-4430-83f8-4eb8a770d1dd",
+      "name": "Validar chunks"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2912,
+        912
+      ],
+      "id": "ca3173b1-3e77-4432-a96e-63f92812b52b",
+      "name": "Stop and Error2"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        3584,
+        912
+      ],
+      "id": "a58662c8-7f8f-4350-96f1-1ece8b06132f",
+      "name": "Stop and Error3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const erro = $input.first().json;\n\nreturn {\n  'erro': `Falha ao inserir vetores no Qdrant.\\n` +\n  `Causa: ${erro?.message ?? erro?.error ?? JSON.stringify(erro)}\\n` +\n  `Dicas:\\n` +\n  `- Se mencionar \"dimension\": a coleção foi criada com dimensão diferente de 384 — delete e recrie\\n` +\n  `- Se mencionar HuggingFace/embedding: a API de embeddings está fora do ar, tente novamente\\n` +\n  `- Se timeout: o CSV é muito grande, considere processar em lotes menores`\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3408,
+        912
+      ],
+      "id": "96675e53-6c70-4ef1-a415-5db76a255e12",
+      "name": "Validar qdrant"
     }
   ],
   "pinData": {},
@@ -274,7 +349,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Criar Colecao Qdrant": {
@@ -285,7 +361,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Token Splitter": {
@@ -307,6 +384,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Validar CSV",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -318,7 +402,8 @@
             "type": "main",
             "index": 0
           }
-        ]
+        ],
+        []
       ]
     },
     "Gerar chunks": {
@@ -326,6 +411,13 @@
         [
           {
             "node": "Inserir no Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validar chunks",
             "type": "main",
             "index": 0
           }
@@ -341,6 +433,15 @@
             "index": 0
           }
         ]
+      ],
+      "main": [
+        [
+          {
+            "node": "Validar qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Data Loader": {
@@ -349,6 +450,15 @@
           {
             "node": "Inserir no Qdrant",
             "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ],
+      "main": [
+        [
+          {
+            "node": "Validar qdrant",
+            "type": "main",
             "index": 0
           }
         ]
@@ -364,6 +474,51 @@
           }
         ]
       ]
+    },
+    "Validar CSV": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar chunks": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar qdrant": {
+      "main": [
+        [
+          {
+            "node": "Stop and Error3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar index SAP": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Validar qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -371,12 +526,11 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "8ae2ddd5-9535-49f3-86e4-88cfacc534ef",
+  "versionId": "799bde5d-2225-49a6-8397-aa7169928951",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "704c04ec2a4650aa2d464b066d7255c3fcce78ca5bbdb349dfdaf9c6d0a943a6"
+    "instanceId": "6b7f71d3005fa263b3298650bbffb5e3c336f215eb611cd1970954ed0ac9b9e0"
   },
-  "nodeGroups": [],
-  "id": "VpkrlBHm2IbvCccB",
+  "id": "OYMFw5JZ3hO1B9NI",
   "tags": []
 }

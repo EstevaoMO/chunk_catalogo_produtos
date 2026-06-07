@@ -1,0 +1,382 @@
+{
+  "name": "AP2 - Chunking",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "007879df-86c9-409d-955c-6181b883d216",
+      "name": "Deletar Colecao Qdrant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2720,
+        576
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"vectors\":\n    {\n      \"size\":384,\n      \"distance\": \"Cosine\"\n    }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "faca9bd9-6a48-41f6-a674-05a4cc266620",
+      "name": "Criar Colecao Qdrant",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2944,
+        576
+      ],
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkSize": 10000
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
+      "typeVersion": 1,
+      "position": [
+        3600,
+        1008
+      ],
+      "id": "29fb1999-525f-46d9-b877-6c516c3d6a96",
+      "name": "Token Splitter"
+    },
+    {
+      "parameters": {
+        "options": {
+          "delimiter": ";"
+        }
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        2496,
+        576
+      ],
+      "id": "de59c920-70b9-482c-9aee-36a717c33fe5",
+      "name": "Ler CSV"
+    },
+    {
+      "parameters": {
+        "formTitle": "Suba um CSV",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Suba um CSV",
+              "fieldType": "file",
+              "fieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        2272,
+        576
+      ],
+      "id": "242c9a69-6992-4baf-8479-b0e15be62354",
+      "name": "Form enviar CSV",
+      "webhookId": "7ba03786-3a48-4757-914e-62a2e2e8020c"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Este script transforma cada linha do CSV em um formato ideal para o Vector Store\nconst items = $('Ler CSV').all();\nreturn items.map(item => {\n  // Remove BOM (caractere invisível) dos nomes das colunas\n  const data = Object.fromEntries(\n    Object.entries(item.json).map(([key, value]) => [\n      key.replace(/^\\uFEFF/, ''),\n      value\n    ])\n  );\n  \n  // 1. Criamos um \"Texto Rico\" apenas com dados relevantes para a busca semântica\n  //const conteudo_semantico = `Produto: ${data['APRESENTAÇÃO']}. Princípio Ativo: ${data['PRINCIPIO ATIVO']}.`;\n  const conteudo_semantico = `${data['APRESENTAÇÃO']}`;\n  \n  // 2. Retornamos o texto para a IA, junto com os metadados baseados no seu script Python\n  return {\n    json: {\n      conteudo_semantico: conteudo_semantico, // <-- O que vai para o Embeddings\n      \n      // Metadados (O que vai para o Qdrant)\n      sap: data['CÓDIGO SAP'],\n      nome: data['APRESENTAÇÃO'],\n      principio_ativo: data['PRINCIPIO ATIVO'],\n      familia: data['FAMÍLIA'],\n      ncm: data['NCM (CLASS FISCAL)'],\n      tipo: data['TIPO DE MEDICAMENTO'],\n      tarja: data['TARJA'],\n      qtde: data['QTDE'],\n      \n      // Construindo o dicionário de preços igual ao script Python\n      precos: {\n        icms_0:   { pf: data[\"ICMS 0 % (PF)\"], pmc: data[\"ICMS 0 % (PMC)\"] },\n        icms_12:  { pf: data[\"ICMS 12 %  (PF)\"], pmc: data[\"ICMS 12 % (PMC) \"] },\n        icms_17:  { pf: data[\"ICMS 17 % (PF)\"], pmc: data[\"ICMS 17 % (PMC)\"] },\n        icms_175: { pf: data[\"ICMS 17,5 % (PF)\"], pmc: data[\"ICMS 17,5 % (PMC)\"] },\n        icms_18:  { pf: data[\"ICMS 18 %  (PF)\"], pmc: data[\"ICMS 18 %  (PMC)\"] },\n        icms_20:  { pf: data[\"ICMS 20 % (PF)\"], pmc: data[\"ICMS 20 % (PMC)\"] },\n        icms_17_ac_rr: { pf: data[\"ICMS 17 % (ALC) AC/RR (PF)\"], pmc: data[\"ICMS 17 % (ALC) AC/RR (PMC)\"] },\n        icms_175_ro:   { pf: data[\"ICMS 17,5 % (ALC) RO (PF)\"],   pmc: data[\"ICMS 17,5 % (ALC) RO (PMC)\"] },\n        icms_18_am_ap: { pf: data[\"ICMS 18 % (ALC) AM/AP (PF)\"],   pmc: data[\"ICMS 18 % (ALC) AM/AP (PMC)\"] }\n      },\n      \n      ean: data['CÓDIGO EAN'] ? String(data['CÓDIGO EAN']) : null,\n      registro_ms: data['REGISTRO MS'] ? String(data['REGISTRO MS']) : null\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3168,
+        576
+      ],
+      "id": "76bf191a-7500-4966-b020-13a8d92ade3b",
+      "name": "Gerar chunks"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "catalogo",
+          "mode": "list",
+          "cachedResultName": "catalogo"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        3424,
+        576
+      ],
+      "id": "34699603-c1d8-4779-bc32-ac3d406226b1",
+      "name": "Inserir no Qdrant",
+      "credentials": {
+        "qdrantApi": {
+          "id": "ozX3YuoPvQo5DNSl",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "sentence-transformers/all-MiniLM-L6-v2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        3392,
+        800
+      ],
+      "id": "02bfeba4-88b3-4132-9e49-53298f687f99",
+      "name": "Embeddings HuggingFace",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "nWPQSQPxRlJH3Fv9",
+          "name": "Hugging Face account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.conteudo_semantico }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "ean",
+                "value": "={{ $json.ean }}"
+              },
+              {
+                "name": "registro_ms",
+                "value": "={{ $json.registro_ms }}"
+              },
+              {
+                "name": "nome",
+                "value": "={{ $json.nome }}"
+              },
+              {
+                "name": "principio_ativo",
+                "value": "={{ $json.principio_ativo }}"
+              },
+              {
+                "name": "familia",
+                "value": "={{ $json.familia }}"
+              },
+              {
+                "name": "qtde",
+                "value": "={{ $json.qtde }}"
+              },
+              {
+                "name": "precos",
+                "value": "={{ $json.precos }}"
+              },
+              {
+                "name": "tarja",
+                "value": "={{ $json.tarja }}"
+              },
+              {
+                "name": "sap",
+                "value": "={{ $json.sap }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        800
+      ],
+      "id": "d100fc60-e2cf-4056-8a99-9978f83b9db2",
+      "name": "Data Loader"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo/index",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "field_name",
+              "value": "metadata.sap"
+            },
+            {
+              "name": "field_schema",
+              "value": "keyword"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3808,
+        576
+      ],
+      "id": "eb10a4ba-be06-4930-8271-de48b3b9b984",
+      "name": "Criar index SAP",
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Deletar Colecao Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Criar Colecao Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Colecao Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Gerar chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler CSV": {
+      "main": [
+        [
+          {
+            "node": "Deletar Colecao Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form enviar CSV": {
+      "main": [
+        [
+          {
+            "node": "Ler CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar chunks": {
+      "main": [
+        [
+          {
+            "node": "Inserir no Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings HuggingFace": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Inserir no Qdrant",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Inserir no Qdrant",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inserir no Qdrant": {
+      "main": [
+        [
+          {
+            "node": "Criar index SAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8ae2ddd5-9535-49f3-86e4-88cfacc534ef",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "704c04ec2a4650aa2d464b066d7255c3fcce78ca5bbdb349dfdaf9c6d0a943a6"
+  },
+  "nodeGroups": [],
+  "id": "VpkrlBHm2IbvCccB",
+  "tags": []
+}

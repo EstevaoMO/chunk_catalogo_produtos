@@ -1,0 +1,718 @@
+{
+  "name": "AP2 - Consulta",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "orcamento",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2a660bdf-f605-431c-a5e3-3db4deb5143b",
+      "name": "Receber Solicitacao",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        560
+      ],
+      "webhookId": "rag-orcamento-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst solicitacao = (body.solicitacao || body.message || '').trim();\nif (!solicitacao) throw new Error('Campo \"solicitacao\" ausente no body da requisição');\nreturn [{ json: { solicitacao } }];"
+      },
+      "id": "64f3c1a1-ec40-4203-8054-ce7d830aeb22",
+      "name": "Extrair Solicitacao",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────\n// Nó: Code — Separar SAP codes vs nomes de produtos\n// Input: saída da LLM (OpenRouter/Gemma)\n// Output: { uf, tipo, sapItems, nameItems, hasSapItems, hasNameItems }\n// ─────────────────────────────────────────────\n\nconst input = $input.first().json.output;\n\n// ── 1. Extrair o texto da resposta da LLM ────────────────────────────────────\n// Suporta resposta já parseada, ou dentro de estruturas OpenAI-compatible\nfunction extractRawText(data) {\n  if (data?.itens) return data; // já é o objeto final\n  \n  const text =\n    data?.message?.content               // OpenRouter padrão\n    ?? data?.choices?.[0]?.message?.content\n    ?? data?.content\n    ?? data?.text\n    ?? (typeof data === 'string' ? data : null);\n\n  if (!text) throw new Error('Não foi possível extrair texto da resposta da LLM: ' + JSON.stringify(data));\n  return text;\n}\n\n// ── 2. Parsear o JSON (com ou sem markdown code fences) ──────────────────────\nfunction parseJson(raw) {\n  if (raw !== null && typeof raw === 'object') return raw;\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('Falha ao parsear JSON da LLM: ' + cleaned.slice(0, 200));\n  }\n}\n\nconst rawText = extractRawText(input);\nconst { uf, tipo, itens } = parseJson(rawText);\n\nif (!Array.isArray(itens)) {\n  throw new Error('\"itens\" não é um array: ' + JSON.stringify(itens));\n}\n\n// ── 3. Detecção de SAP code ──────────────────────────────────────────────────\n// Prefixos que a IA pode adicionar erroneamente\nconst SAP_PREFIX_RE = /^(s\\.?a\\.?p\\.?|c[óo]d(igo)?\\.?\\s*sap|sap\\s*[:\\-\\s])\\s*/i;\n\n// SAP codes: numéricos puros, tipicamente 5–10 dígitos\nconst SAP_MIN_DIGITS = 5;\nconst SAP_MAX_DIGITS = 10;\n\nfunction looksLikeSap(item) {\n  const stripped = item.trim().replace(SAP_PREFIX_RE, '').trim();\n  // Após remover prefixo, deve ser somente dígitos no range esperado\n  return /^\\d+$/.test(stripped) &&\n    stripped.length >= SAP_MIN_DIGITS &&\n    stripped.length <= SAP_MAX_DIGITS;\n}\n\nfunction extractSapNumber(item) {\n  return item.trim()\n    .replace(SAP_PREFIX_RE, '')\n    .replace(/\\D/g, '') // remove qualquer não-dígito residual\n    .trim();\n}\n\n// ── 4. Classificar cada item ─────────────────────────────────────────────────\nconst sapItems   = [];\nconst nameItems  = [];\n\nfor (const item of itens) {\n  const trimmed = item.trim();\n  if (!trimmed) continue;\n\n  if (looksLikeSap(trimmed)) {\n    sapItems.push({\n      original: trimmed,\n      sap: extractSapNumber(trimmed),\n    });\n  } else {\n    nameItems.push({\n      original: trimmed,\n      searchQuery: trimmed.toUpperCase(), // normaliza para busca vetorial\n    });\n  }\n}\n\n// ── 5. Retorno ───────────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    uf:           uf   ?? null,\n    tipo:         tipo ?? 'pf',\n    sapItems,\n    nameItems,\n    hasSapItems:  sapItems.length > 0,\n    hasNameItems: nameItems.length > 0,\n    summary: {\n      total: itens.length,\n      sap:   sapItems.length,\n      names: nameItems.length,\n    },\n  },\n}];"
+      },
+      "id": "5fa8a7db-fcf4-444a-9fea-c699f5491b35",
+      "name": "Parsear Itens LLM 1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -848,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-31b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -1120,
+        784
+      ],
+      "id": "22bfbef2-c435-4bc0-baa2-627dd98b39ba",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "45s06RhuObCsBiJK",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "catalogo",
+          "mode": "list",
+          "cachedResultName": "catalogo"
+        },
+        "prompt": "={{ $json.searchQuery }}",
+        "topK": 5,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        -80
+      ],
+      "id": "d7aa64c6-2f83-4948-85eb-355df61ac24a",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "ozX3YuoPvQo5DNSl",
+          "name": "Qdrant account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dc5d5d3e-116c-4cda-b198-0c74edab0e92",
+              "leftValue": "={{ $json.hasSapItems }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -624,
+        752
+      ],
+      "id": "c52eb9e2-ba69-4344-a8ae-14b928b93090",
+      "name": "Existe SAP?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1dc0442d-459e-46ef-8270-5b464d3095d4",
+              "leftValue": "={{ $json.hasNameItems }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -624,
+        224
+      ],
+      "id": "1e557750-9b65-4b42-aec9-27ac63b98df2",
+      "name": "Existe Nome?"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "sapItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        608
+      ],
+      "id": "259b2b71-9d7f-4a8e-84ce-90b9e2edac15",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "nameItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        128
+      ],
+      "id": "7454e926-61bc-442d-8fe2-698f9cb8bc6f",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "modelName": "sentence-transformers/all-MiniLM-L6-v2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
+      "typeVersion": 1,
+      "position": [
+        128,
+        144
+      ],
+      "id": "9efc5009-db8a-4e87-930d-1ce230463bdd",
+      "name": "Embeddings HuggingFace Inference",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "nWPQSQPxRlJH3Fv9",
+          "name": "Hugging Face account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo/points/scroll",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"limit\": 1,\n  \"with_payload\": true,\n  \"with_vector\": false,\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.sap\",\n        \"match\": {\n          \"value\": \"{{ $json.sap }}\"\n        }\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        112,
+        704
+      ],
+      "id": "48905b72-450f-46a4-b9d2-d1a829069336",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "google/gemma-4-31b-it:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1152,
+        544
+      ],
+      "id": "8c390c7c-7e61-4dfb-b68e-b0ba2fbdaedd",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "45s06RhuObCsBiJK",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Selecionar Preço por UF/Tipo\n// Input:  itens do Merge (schema normalizado dos dois nodes anteriores)\n// Ref:    \"Parsear Itens LLM 1\" → uf, tipo\n// Output: itens prontos para o orçamento com preço já selecionado\n// ─────────────────────────────────────────────────────────────────────────────\n\n// ── Tabela de alíquotas ──────────────────────────────────────────────────────\nconst ICMS_UF = {\n  AC: { aliquota: 19.0,  chave_preco: 'icms_20' },\n  AL: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  AM: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  AP: { aliquota: 18.0,  chave_preco: 'icms_18' },\n  BA: { aliquota: 20.5,  chave_preco: 'icms_20' },\n  CE: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  DF: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  ES: { aliquota: 17.0,  chave_preco: 'icms_17' },\n  GO: { aliquota: 19.0,  chave_preco: 'icms_20' },\n  MA: { aliquota: 23.0,  chave_preco: 'icms_20' },\n  MT: { aliquota: 17.0,  chave_preco: 'icms_17' },\n  MS: { aliquota: 17.0,  chave_preco: 'icms_17' },\n  MG: { aliquota: 18.0,  chave_preco: 'icms_18' },\n  PB: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  PR: { aliquota: 19.5,  chave_preco: 'icms_20' },\n  PE: { aliquota: 20.5,  chave_preco: 'icms_20' },\n  PI: { aliquota: 22.5,  chave_preco: 'icms_20' },\n  RN: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  RS: { aliquota: 17.0,  chave_preco: 'icms_17' },\n  RJ: { aliquota: 22.0,  chave_preco: 'icms_20' },\n  RO: { aliquota: 19.5,  chave_preco: 'icms_20' },\n  RR: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  SC: { aliquota: 17.0,  chave_preco: 'icms_17' },\n  SP: { aliquota: 18.0,  chave_preco: 'icms_18' },\n  SE: { aliquota: 20.0,  chave_preco: 'icms_20' },\n  TO: { aliquota: 20.0,  chave_preco: 'icms_20' },\n};\n\nconst UF_PADRAO   = 'SP';\nconst TIPO_PADRAO = 'pf'; // pf = Pessoa Jurídica (preço de fábrica)\n\n// ── 1. Ler contexto do nó de parsing ────────────────────────────────────────\nconst parsing = $('Parsear Itens LLM 1').first().json;\n\nconst ufRaw = parsing?.uf;\nconst uf    = (ufRaw && typeof ufRaw === 'string')\n  ? ufRaw.trim().toUpperCase()\n  : UF_PADRAO;\n\nconst tipo = (parsing?.tipo === 'pmc') ? 'pmc' : TIPO_PADRAO;\n\n// ── 2. Resolver chave de ICMS ────────────────────────────────────────────────\nconst icmsInfo   = ICMS_UF[uf] ?? ICMS_UF[UF_PADRAO];\nconst chaveIcms  = icmsInfo.chave_preco;  // ex: 'icms_18'\nconst aliquota   = icmsInfo.aliquota;\n\n// ── 3. Helper: parse de preço brasileiro → número ───────────────────────────\n// Os preços vêm como string \"93,67\" — convertemos para float para cálculos\nfunction parsePreco(str) {\n  if (!str || str === '0') return 0;\n  return parseFloat(String(str).replace(',', '.')) || 0;\n}\n\n// ── 4. Processar cada item do Merge ─────────────────────────────────────────\nconst produtos = $input.all();\nconst resultado = [];\n\nfor (const item of produtos) {\n  const p = item.json;\n\n  // Bloco de preços para a alíquota da UF\n  const blocoIcms = p.precos?.[chaveIcms] ?? {};\n\n  const precoPf  = parsePreco(blocoIcms.pf);\n  const precoPmc = parsePreco(blocoIcms.pmc);\n\n  // Preço selecionado conforme tipo do cliente\n  const precoSelecionado = tipo === 'pmc' ? precoPmc : precoPf;\n\n  // Formata de volta para exibição em pt-BR\n  const precoFormatado = precoSelecionado > 0\n    ? precoSelecionado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })\n    : 'Indisponível';\n\n  resultado.push({\n    json: {\n      // Identificação do produto\n      sap:             p.sap,\n      nome:            p.nome,\n      principio_ativo: p.principio_ativo,\n      familia:         p.familia,\n      qtde:            p.qtde,\n      tarja:           p.tarja,\n      ean:             p.ean,\n\n      // Contexto fiscal aplicado\n      uf,\n      tipo,\n      aliquota,\n      chave_icms:      chaveIcms,\n\n      // Preços calculados\n      preco_pf:        precoPf,\n      preco_pmc:       precoPmc,\n      preco_aplicado:  precoSelecionado,   // número — bom para cálculos\n      preco_formatado: precoFormatado,     // string — bom para exibição\n\n      // Rastreabilidade\n      score:           p.score,\n      source:          p.source,\n    }\n  });\n}\n\n// Ordena: itens SAP primeiro (source = 'sap'), depois por score desc\nresultado.sort((a, b) => {\n  if (a.json.source === b.json.source) return b.json.score - a.json.score;\n  return a.json.source === 'sap' ? -1 : 1;\n});\n\nreturn resultado;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        320
+      ],
+      "id": "980c4ab7-573e-4e66-a246-86274edbcebf",
+      "name": "Selecionar Preço por UF/Tipo"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Montar Catálogo para Prompt\n// Input:  itens do nó \"Selecionar Preço por UF/Tipo\"\n// Output: { catalogo_formatado, mensagem_original, uf, tipo, aliquota }\n// ─────────────────────────────────────────────────────────────────────────────\n\nconst produtos = $input.all();\n\n// Ajuste o nome do nó conforme o seu fluxo\nconst mensagemOriginal =\n  $('Receber Solicitacao').first().json?.body?.mensagem    // tente variações conforme seu webhook\n  ?? $('Receber Solicitacao').first().json?.body?.message\n  ?? $('Receber Solicitacao').first().json?.body?.text\n  ?? $('Receber Solicitacao').first().json?.mensagem\n  ?? $('Receber Solicitacao').first().json?.body?.solicitacao\n  ?? '(mensagem não disponível)';\n\nconst parsing   = $('Parsear Itens LLM 1').first().json;\nconst uf        = parsing.uf   ?? 'SP';\nconst tipo      = parsing.tipo ?? 'pf';\n\n// Pega alíquota do primeiro produto (todos têm a mesma, pois vêm da mesma UF)\nconst aliquota  = produtos[0]?.json?.aliquota ?? 18;\n\n// ── Rótulo de confiança ──────────────────────────────────────────────────────\nfunction confiancaLabel(p) {\n  if (p.source === 'sap')   return 'MAXIMA';   // busca determinística\n  if (p.score >= 0.65)      return 'ALTA';\n  if (p.score >= 0.50)      return 'MEDIA';\n  return 'BAIXA';\n}\n\n// ── Formatar cada produto para o catálogo ────────────────────────────────────\nconst linhasProduto = produtos.map(item => {\n  const p = item.json;\n  return [\n    `Produto: ${p.nome}`,\n    `SAP: ${p.sap}`,\n    `Principio_Ativo: ${p.principio_ativo ?? 'N/D'}`,\n    `Preco: ${p.preco_aplicado.toFixed(2).replace('.', ',')}`,\n    `Confianca: ${confiancaLabel(p)}`,\n    '---',\n  ].join('\\n');\n});\n\nreturn [{\n  json: {\n    catalogo_formatado: linhasProduto.join('\\n'),\n    mensagem_original:  mensagemOriginal,\n    uf,\n    tipo,\n    aliquota,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        848,
+        320
+      ],
+      "id": "4e991293-2540-4562-85de-5ec412979f85",
+      "name": "Montar Catálogo para Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Montar Resposta Webhook\n// Input:  saída da LLM de orçamento\n// Ref:    \"Selecionar Preço por UF/Tipo\" → tabela de preços por SAP\n//         \"Montar Catálogo para Prompt\"  → aliquota\n// Output: JSON final do webhook\n// ─────────────────────────────────────────────────────────────────────────────\n\n// ── 1. Parsear resposta da LLM ───────────────────────────────────────────────\nfunction parseJsonLLM(data) {\n  // Tenta extrair o json da resposta — o nó LLM do n8n geralmente já entrega\n  // o content como string dentro de data.message.content ou data.text\n  const raw = $input.first().json.output\n\n  if (!raw) throw new Error('Resposta da LLM vazia ou em formato inesperado.');\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('LLM não retornou JSON válido: ' + cleaned.slice(0, 300));\n  }\n}\n\nconst llmRaw    = $input.first().json;\nconst llmOutput = parseJsonLLM(llmRaw);\n\n// ── 2. Montar índice de preços por SAP ──────────────────────────────────────\n// Acessa os produtos já com preço selecionado do nó anterior\nconst precoPorSap  = new Map();\nconst precoPorNome = new Map();\n\nfor (const item of $('Selecionar Preço por UF/Tipo').all()) {\n  const p = item.json;\n  if (p.sap)  precoPorSap.set(String(p.sap),   p);\n  if (p.nome) precoPorNome.set(p.nome.toUpperCase(), p);\n}\n\n// ── 3. Dados de contexto ─────────────────────────────────────────────────────\nconst aliquota = $('Montar Catálogo para Prompt').first().json.aliquota ?? 18;\n\n// ── 4. Helper: busca produto pelo SAP ou nome ────────────────────────────────\nfunction buscarProduto(sap, nome催ogo) {\n  if (sap && precoPorSap.has(String(sap))) {\n    return precoPorSap.get(String(sap));\n  }\n  if (nome催ogo) {\n    return precoPorNome.get(nome催ogo.toUpperCase()) ?? null;\n  }\n  return null;\n}\n\n// ── 5. Montar itens do orçamento ─────────────────────────────────────────────\nconst itensLLM    = llmOutput?.itens ?? [];\nconst itensFinal  = [];\nlet   totalGeral  = 0;\nconst alertas     = [];\n\nfor (const item of itensLLM) {\n  const produto = buscarProduto(item.sap, item.item_catalogo);\n\n  if (!produto) {\n    // Produto não encontrado no índice — registra alerta e pula\n    alertas.push(`Produto \"${item.item_catalogo}\" não encontrado na base de preços.`);\n    continue;\n  }\n\n  const quantidade    = Math.max(1, parseInt(item.item_quantidade) || 1);\n  const precoUnitario = produto.preco_aplicado;\n  const precoTotal    = parseFloat((precoUnitario * quantidade).toFixed(2));\n\n  totalGeral += precoTotal;\n\n  itensFinal.push({\n    item_solicitado: item.item_solicitado,\n    item_catalogo:   item.item_catalogo,\n    sap:             produto.sap,\n    item_preco:      precoUnitario,\n    item_quantidade: quantidade,\n    item_total:      precoTotal,\n    icms:            aliquota,\n  });\n}\n\n// ── 6. Montar campo \"obs\" final ───────────────────────────────────────────────\n// Combina obs da LLM com alertas técnicos de itens não encontrados\nconst obsPartes = [];\nif (llmOutput?.obs)          obsPartes.push(llmOutput.obs);\nif (alertas.length > 0)      obsPartes.push(alertas.join(' '));\n\nlet obs = obsPartes.join(' ').trim();\nif (!obs) {\n  obs = itensFinal.length === 1\n    ? 'Orçamento gerado com 1 item.'\n    : `Orçamento gerado com ${itensFinal.length} itens.`;\n}\n\n// ── 7. Resposta final ────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    status:           '200',\n    orcamento:         itensFinal,\n    total_orcamento:  parseFloat(totalGeral.toFixed(2)),\n    obs,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1424,
+        320
+      ],
+      "id": "85aa46fb-e01f-40b2-a76b-86f7527427b1",
+      "name": "Montar Resposta Webhook"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1648,
+        320
+      ],
+      "id": "ff37b6e3-213b-4c7e-be63-451b9ce05007",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=E-mail:\n{{ $json.solicitacao }}",
+        "options": {
+          "systemMessage": "Você é um assistente especialista em extração de dados. Sua única tarefa é ler e-mails de pedidos e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA OS CAMPOS DO JSON:\n1. \"uf\": A sigla do estado brasileiro do cliente. DEVE ser obrigatoriamente um destes valores: AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MT, MS, MG, PB, PR, PE, PI, RN, RS, RJ, RO, RR, SC, SP, SE, TO. Se o estado não for mencionado, retorne null.\n2. \"tipo\": Retorne \"pmc\" se o remetente for uma Pessoa Física comum. Retorne \"pf\" se o remetente for Pessoa Jurídica (como farmácias, clínicas, revendedores) ou se não for possível determinar com certeza. O padrão é \"pf\".\n3. \"itens\": Uma lista contendo apenas os nomes dos produtos, princípios ativos ou códigos SAP solicitados. Não inclua as quantidades (ex: remova \"10x\", \"5 caixas\", etc). Caso detecte um item de pedido com código SAP, retorne APENAS O NÚMERO.\n\nEXEMPLOS DE USO:\n\n---\nE-mail:\nOlá, gostaria de receber um orçamento dos seguintes produtos:\n4x ACHEFLAN CREM BGX30G\n10x ACETILCISTEINA 20MG XPE FRAM VDX120ML\n15x CLOR RANITIDINA 300MG COMR BLX20\nAt.te,\nJosé Pedidor\nJoseFarmacia - Rio de Janeiro - RJ\n\nSaída:\n{\"uf\": \"RJ\", \"tipo\": \"pf\", \"itens\": [\"ACHEFLAN CREM BGX30G\", \"ACETILCISTEINA 20MG XPE FRAM VDX120ML\", \"CLOR RANITIDINA 300MG COMR BLX20\"]}\n---\nE-mail:\nBom dia, sou o Marcos, moro em São Paulo (SP). Gostaria de saber o preço do paracetamol e também do item de código SAP 987654.\n\nSaída:\n{\"uf\": \"SP\", \"tipo\": \"pmc\", \"itens\": [\"paracetamol\", \"987654\"]}\n---\nE-mail:\nFavor cotar 5 frascos de dipirona em gotas.\n\nSaída:\n{\"uf\": null, \"tipo\": \"pf\", \"itens\": [\"dipirona em gotas\"]}\n---\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -1200,
+        560
+      ],
+      "id": "90bf9b2e-a955-4e84-91e3-068a790c0e12",
+      "name": "Agente Separador de Produtos"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        800
+      ],
+      "id": "a6d0a800-9374-416c-9e8e-ec0ff944881a",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        368
+      ],
+      "id": "f9fe6912-cf2c-4557-afe2-de6092094aa1",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -176,
+        128
+      ],
+      "id": "8c0b3462-8f7c-401c-8458-9d13e69848ff",
+      "name": "Buscar todos os nomes no banco vetorial"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -176,
+        608
+      ],
+      "id": "01385607-20a4-44c6-b0d2-377f80b8ad93",
+      "name": "Buscar todos os SAPs no banco vetorial"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Tratar Qdrant — busca vetorial\n// Input: saída do Loop (itens com { document: { pageContent, metadata }, score })\n// Output: itens normalizados, deduplicados por nome, score acima do threshold\n// ─────────────────────────────────────────────────────────────────────────────\n\nconst SCORE_MIN = 0.40; // abaixo disso é ruído\n\nconst allItems = $input.all();\n\n// ── 1. Flatten: cada item pode ser um objeto único ou um array (depende do Loop)\nconst rawResults = [];\n\nfor (const item of allItems) {\n  const data = item.json;\n  const list = Array.isArray(data) ? data : [data];\n\n  for (const entry of list) {\n    // Valida estrutura esperada do Qdrant node\n    if (entry?.document?.metadata && typeof entry?.score === 'number') {\n      rawResults.push(entry);\n    }\n  }\n}\n\n// ── 2. Filtrar por score mínimo\nconst filtered = rawResults.filter(r => r.score >= SCORE_MIN);\n\n// ── 3. Deduplicar por nome, mantendo o maior score\n//    (mesmo nome pode aparecer com SAPs diferentes — registro_ms distintos,\n//     mas preços idênticos; guardamos o de maior score como representante)\nconst byNome = new Map();\n\nfor (const result of filtered) {\n  const nome = result.document.metadata.nome;\n  const current = byNome.get(nome);\n\n  if (!current || result.score > current.score) {\n    byNome.set(nome, result);\n  }\n}\n\n// ── 4. Normalizar para schema comum\nconst normalized = [];\n\nfor (const [, result] of byNome) {\n  const meta = result.document.metadata;\n\n  normalized.push({\n    json: {\n      sap:             meta.sap             ?? null,\n      nome:            meta.nome,\n      principio_ativo: meta.principio_ativo ?? null,\n      precos:          meta.precos          ?? {},\n      score:           result.score,\n      source:          'vector',\n    }\n  });\n}\n\n// Ordenar por score descendente para facilitar debug\nnormalized.sort((a, b) => b.json.score - a.json.score);\n\nreturn normalized;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        320
+      ],
+      "id": "4ff67044-a057-483c-a856-764cd81ff6c6",
+      "name": "Tratar resposta"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Tratar HTTP Request — busca por SAP (Qdrant scroll API)\n// Input: saída do Loop (itens com { result: { points: [...] }, status, time })\n// Output: itens normalizados no mesmo schema do Node 1\n// ─────────────────────────────────────────────────────────────────────────────\n\nconst allItems = $input.all();\nconst normalized = [];\nconst seenSaps = new Set(); // evita duplicatas caso o loop envie o mesmo SAP duas vezes\n\nfor (const item of allItems) {\n  const data = item.json;\n\n  // O loop pode entregar um único objeto ou um array por iteração\n  const responses = Array.isArray(data) ? data : [data];\n\n  for (const response of responses) {\n    // Descarta respostas com erro ou sem pontos\n    if (response?.status !== 'ok') continue;\n\n    const points = response?.result?.points ?? [];\n\n    for (const point of points) {\n      const meta = point?.payload?.metadata;\n      if (!meta?.sap) continue;\n\n      // Deduplicar por SAP (segurança extra)\n      if (seenSaps.has(meta.sap)) continue;\n      seenSaps.add(meta.sap);\n\n      normalized.push({\n        json: {\n          sap:             meta.sap             ?? null,\n          nome:            meta.nome,\n          principio_ativo: meta.principio_ativo ?? null,\n          precos:          meta.precos          ?? {},\n          score:           1.0,\n          source:          'sap',\n        }\n      });\n    }\n  }\n}\n\nreturn normalized;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        112,
+        512
+      ],
+      "id": "087479b7-9a96-4126-9467-fa3bb8571084",
+      "name": "Tratar resposta 2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        400,
+        320
+      ],
+      "id": "184a70fb-3eac-4e81-ba79-8be73a9c4512",
+      "name": "Mesclar respostas"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=[E-MAIL DO CLIENTE]\n{{ $json.mensagem_original }}\n\n[CATÁLOGO DE PRODUTOS]\n{{ $json.catalogo_formatado }}\n\n[SAÍDA JSON]",
+        "options": {
+          "systemMessage": "Você é um sistema especialista em montagem de orçamentos farmacêuticos B2B. Sua única tarefa é analisar um [E-MAIL DO CLIENTE] e um [CATÁLOGO DE PRODUTOS] e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA \"itens\":\n\n1. FILTRO RIGOROSO: O catálogo pode conter produtos que o cliente NÃO pediu (resultados do banco vetorial). Inclua APENAS os produtos que o cliente efetivamente solicitou. Descarte todos os outros.\n\n2. COMPLETUDE: Se o cliente pediu N produtos, o JSON deve ter exatamente N itens. Não descarte pedidos válidos nem adicione itens extras.\n\n3. \"item_solicitado\": O texto exato como o cliente nomeou o produto no e-mail (ex: \"aciclovir creme\", \"SAP 123456\"). Copie sem alterar.\n\n4. \"item_catalogo\": O nome EXATO da linha \"Produto:\" no catálogo que melhor corresponde ao pedido. Não altere nenhuma letra.\n\n5. \"sap\": O código SAP exato da linha \"SAP:\" do produto escolhido no catálogo.\n\n6. \"item_quantidade\": Extraia do e-mail seguindo esta prioridade:\n   a. \"10x PRODUTO\" ou \"10 x PRODUTO\" → 10\n   b. \"PRODUTO x10\" ou \"PRODUTO X10\" → 10\n   c. \"10 caixas/unidades/frascos de PRODUTO\" → 10\n   d. Sufixos como BLX, BLAX, FRX, CX dentro do nome do produto NÃO são quantidade.\n   e. Sem indicação de quantidade → use 1.\n\n7. \"confianca\": Copie EXATAMENTE o valor da linha \"Confianca:\" do produto no catálogo. Valores possíveis: MAXIMA, ALTA, MEDIA, BAIXA.\n\n8. DUPLICATAS NO CATÁLOGO: Se o mesmo produto aparecer mais de uma vez, use a primeira ocorrência. Um produto pedido = um item no JSON.\n\nREGRAS PARA \"obs\":\n\n- Se TODOS os itens têm confiança MAXIMA ou ALTA: retorne \"\".\n- Se ALGUM item tem confiança MEDIA: mencione que um ou mais produtos podem não corresponder exatamente ao solicitado e recomende confirmação.\n- Se ALGUM item tem confiança BAIXA: alerte claramente que o produto encontrado pode não ser o item pedido e recomende contato para confirmar.\n- Seja objetivo. Máximo de 2 frases."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1072,
+        320
+      ],
+      "id": "ca67dd3d-0a0c-49ae-88dc-9ef289ae7f76",
+      "name": "Agente Gerador de Orçamento"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receber Solicitacao": {
+      "main": [
+        [
+          {
+            "node": "Extrair Solicitacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair Solicitacao": {
+      "main": [
+        [
+          {
+            "node": "Agente Separador de Produtos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear Itens LLM 1": {
+      "main": [
+        [
+          {
+            "node": "Existe Nome?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Existe SAP?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Separador de Produtos",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Buscar todos os nomes no banco vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe SAP?": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe Nome?": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Buscar todos os SAPs no banco vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings HuggingFace Inference": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Buscar todos os nomes no banco vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Buscar todos os SAPs no banco vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Gerador de Orçamento",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Selecionar Preço por UF/Tipo": {
+      "main": [
+        [
+          {
+            "node": "Montar Catálogo para Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Catálogo para Prompt": {
+      "main": [
+        [
+          {
+            "node": "Agente Gerador de Orçamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Resposta Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Separador de Produtos": {
+      "main": [
+        [
+          {
+            "node": "Parsear Itens LLM 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar todos os nomes no banco vetorial": {
+      "main": [
+        [
+          {
+            "node": "Tratar resposta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar todos os SAPs no banco vetorial": {
+      "main": [
+        [
+          {
+            "node": "Tratar resposta 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar resposta": {
+      "main": [
+        [
+          {
+            "node": "Mesclar respostas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar resposta 2": {
+      "main": [
+        [
+          {
+            "node": "Mesclar respostas",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Mesclar respostas": {
+      "main": [
+        [
+          {
+            "node": "Selecionar Preço por UF/Tipo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Gerador de Orçamento": {
+      "main": [
+        [
+          {
+            "node": "Montar Resposta Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4987e689-6db6-4b30-af16-d5cb839a7ce9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "704c04ec2a4650aa2d464b066d7255c3fcce78ca5bbdb349dfdaf9c6d0a943a6"
+  },
+  "nodeGroups": [],
+  "id": "Oy2J8FSooAMMnVI9",
+  "tags": []
+}

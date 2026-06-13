@@ -13,27 +13,29 @@
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -1648,
-        560
+        -1776,
+        496
       ],
-      "webhookId": "rag-orcamento-webhook"
+      "webhookId": "rag-orcamento-webhook",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst solicitacao = (body.solicitacao || body.message || '').trim();\nif (!solicitacao) throw new Error('Campo \"solicitacao\" ausente no body da requisição');\nreturn [{ json: { solicitacao } }];"
+        "jsCode": "const body = $input.first().json.body || $input.first().json;\nconst solicitacao = (body.solicitacao || body.message || '').trim();\n\nif (!solicitacao) throw new Error(\"Campo 'solicitacao' ausente no body da requisição\");\n\nreturn [{ json: { solicitacao } }];"
       },
       "id": "64f3c1a1-ec40-4203-8054-ce7d830aeb22",
       "name": "Extrair Solicitacao",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -1424,
-        560
-      ]
+        -1536,
+        496
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// ─────────────────────────────────────────────\n// Nó: Code — Separar SAP codes vs nomes de produtos\n// Input: saída da LLM (OpenRouter/Gemma)\n// Output: { uf, tipo, sapItems, nameItems, hasSapItems, hasNameItems }\n// ─────────────────────────────────────────────\n\nconst input = $input.first().json.output;\n\n// ── 1. Extrair o texto da resposta da LLM ────────────────────────────────────\n// Suporta resposta já parseada, ou dentro de estruturas OpenAI-compatible\nfunction extractRawText(data) {\n  if (data?.itens) return data; // já é o objeto final\n  \n  const text =\n    data?.message?.content               // OpenRouter padrão\n    ?? data?.choices?.[0]?.message?.content\n    ?? data?.content\n    ?? data?.text\n    ?? (typeof data === 'string' ? data : null);\n\n  if (!text) throw new Error('Não foi possível extrair texto da resposta da LLM: ' + JSON.stringify(data));\n  return text;\n}\n\n// ── 2. Parsear o JSON (com ou sem markdown code fences) ──────────────────────\nfunction parseJson(raw) {\n  if (raw !== null && typeof raw === 'object') return raw;\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('Falha ao parsear JSON da LLM: ' + cleaned.slice(0, 200));\n  }\n}\n\nconst rawText = extractRawText(input);\nconst { uf, tipo, itens } = parseJson(rawText);\n\nif (!Array.isArray(itens)) {\n  throw new Error('\"itens\" não é um array: ' + JSON.stringify(itens));\n}\n\n// ── 3. Detecção de SAP code ──────────────────────────────────────────────────\n// Prefixos que a IA pode adicionar erroneamente\nconst SAP_PREFIX_RE = /^(s\\.?a\\.?p\\.?|c[óo]d(igo)?\\.?\\s*sap|sap\\s*[:\\-\\s])\\s*/i;\n\n// SAP codes: numéricos puros, tipicamente 5–10 dígitos\nconst SAP_MIN_DIGITS = 5;\nconst SAP_MAX_DIGITS = 10;\n\nfunction looksLikeSap(item) {\n  const stripped = item.trim().replace(SAP_PREFIX_RE, '').trim();\n  // Após remover prefixo, deve ser somente dígitos no range esperado\n  return /^\\d+$/.test(stripped) &&\n    stripped.length >= SAP_MIN_DIGITS &&\n    stripped.length <= SAP_MAX_DIGITS;\n}\n\nfunction extractSapNumber(item) {\n  return item.trim()\n    .replace(SAP_PREFIX_RE, '')\n    .replace(/\\D/g, '') // remove qualquer não-dígito residual\n    .trim();\n}\n\n// ── 4. Classificar cada item ─────────────────────────────────────────────────\nconst sapItems   = [];\nconst nameItems  = [];\n\nfor (const item of itens) {\n  const trimmed = item.trim();\n  if (!trimmed) continue;\n\n  if (looksLikeSap(trimmed)) {\n    sapItems.push({\n      original: trimmed,\n      sap: extractSapNumber(trimmed),\n    });\n  } else {\n    nameItems.push({\n      original: trimmed,\n      searchQuery: trimmed.toUpperCase(), // normaliza para busca vetorial\n    });\n  }\n}\n\n// ── 5. Retorno ───────────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    uf:           uf   ?? null,\n    tipo:         tipo ?? 'pf',\n    sapItems,\n    nameItems,\n    hasSapItems:  sapItems.length > 0,\n    hasNameItems: nameItems.length > 0,\n    summary: {\n      total: itens.length,\n      sap:   sapItems.length,\n      names: nameItems.length,\n    },\n  },\n}];"
+        "jsCode": "// ─────────────────────────────────────────────\n// Nó: Code — Separar SAP codes vs nomes de produtos\n// Input: saída da LLM (OpenRouter/Gemma)\n// Output: { uf, tipo, sapItems, nameItems, hasSapItems, hasNameItems }\n// ─────────────────────────────────────────────\n\nconst input = $input.first().json.output;\n\n// ── 1. Extrair o texto da resposta da LLM ────────────────────────────────────\n// Suporta resposta já parseada, ou dentro de estruturas OpenAI-compatible\nfunction extractRawText(data) {\n  if (data?.itens) return data; // já é o objeto final\n  \n  const text =\n    data?.message?.content               // OpenRouter padrão\n    ?? data?.choices?.[0]?.message?.content\n    ?? data?.content\n    ?? data?.text\n    ?? (typeof data === 'string' ? data : null);\n\n  if (!text) throw new Error('Não foi possível extrair texto da resposta da LLM: ' + JSON.stringify(data));\n  return text;\n}\n\n// ── 2. Parsear o JSON (com ou sem markdown code fences) ──────────────────────\nfunction parseJson(raw) {\n  if (raw !== null && typeof raw === 'object') return raw;\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('Falha ao parsear JSON da LLM: ' + cleaned.slice(0, 200));\n  }\n}\n\nconst rawText = extractRawText(input);\nconst { uf, tipo, itens } = parseJson(rawText);\n\nif (!Array.isArray(itens)) {\n  throw new Error(\"itens' não é um array -> \" + JSON.stringify(itens));\n}\nif (itens.length === 0) {\n  throw new Error('A IA não conseguiu identificar nenhum produto válido na mensagem.');\n}\n\n// ── 3. Detecção de SAP code ──────────────────────────────────────────────────\n// Prefixos que a IA pode adicionar erroneamente\nconst SAP_PREFIX_RE = /^(s\\.?a\\.?p\\.?|c[óo]d(igo)?\\.?\\s*sap|sap\\s*[:\\-\\s])\\s*/i;\n\n// SAP codes: numéricos puros, tipicamente 5–10 dígitos\nconst SAP_MIN_DIGITS = 5;\nconst SAP_MAX_DIGITS = 10;\n\nfunction looksLikeSap(item) {\n  const stripped = item.trim().replace(SAP_PREFIX_RE, '').trim();\n  // Após remover prefixo, deve ser somente dígitos no range esperado\n  return /^\\d+$/.test(stripped) &&\n    stripped.length >= SAP_MIN_DIGITS &&\n    stripped.length <= SAP_MAX_DIGITS;\n}\n\nfunction extractSapNumber(item) {\n  return item.trim()\n    .replace(SAP_PREFIX_RE, '')\n    .replace(/\\D/g, '') // remove qualquer não-dígito residual\n    .trim();\n}\n\n// ── 4. Classificar cada item ─────────────────────────────────────────────────\nconst sapItems   = [];\nconst nameItems  = [];\n\nfor (const item of itens) {\n  const trimmed = item.trim();\n  if (!trimmed) continue;\n\n  if (looksLikeSap(trimmed)) {\n    sapItems.push({\n      original: trimmed,\n      sap: extractSapNumber(trimmed),\n    });\n  } else {\n    nameItems.push({\n      original: trimmed,\n      searchQuery: trimmed.toUpperCase(), // normaliza para busca vetorial\n    });\n  }\n}\n\n// ── 5. Retorno ───────────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    uf:           uf   ?? null,\n    tipo:         tipo ?? 'pf',\n    sapItems,\n    nameItems,\n    hasSapItems:  sapItems.length > 0,\n    hasNameItems: nameItems.length > 0,\n    summary: {\n      total: itens.length,\n      sap:   sapItems.length,\n      names: nameItems.length,\n    },\n  },\n}];"
       },
       "id": "5fa8a7db-fcf4-444a-9fea-c699f5491b35",
       "name": "Parsear Itens LLM 1",
@@ -41,8 +43,9 @@
       "typeVersion": 2,
       "position": [
         -848,
-        560
-      ]
+        496
+      ],
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -53,7 +56,7 @@
       "typeVersion": 1,
       "position": [
         -1120,
-        784
+        720
       ],
       "id": "22bfbef2-c435-4bc0-baa2-627dd98b39ba",
       "name": "OpenRouter Chat Model",
@@ -204,33 +207,8 @@
           "id": "nWPQSQPxRlJH3Fv9",
           "name": "Hugging Face account"
         }
-      }
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo/points/scroll",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"limit\": 1,\n  \"with_payload\": true,\n  \"with_vector\": false,\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.sap\",\n        \"match\": {\n          \"value\": \"{{ $json.sap }}\"\n        }\n      }\n    ]\n  }\n}",
-        "options": {}
       },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        112,
-        704
-      ],
-      "id": "48905b72-450f-46a4-b9d2-d1a829069336",
-      "name": "HTTP Request",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "3v17KreZ6RM9e3pR",
-          "name": "Qdrant Header"
-        }
-      }
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -263,7 +241,8 @@
         320
       ],
       "id": "980c4ab7-573e-4e66-a246-86274edbcebf",
-      "name": "Selecionar Preço por UF/Tipo"
+      "name": "Selecionar Preço por UF/Tipo",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -276,11 +255,12 @@
         320
       ],
       "id": "4e991293-2540-4562-85de-5ec412979f85",
-      "name": "Montar Catálogo para Prompt"
+      "name": "Montar Catálogo para Prompt",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
-        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Montar Resposta Webhook\n// Input:  saída da LLM de orçamento\n// Ref:    \"Selecionar Preço por UF/Tipo\" → tabela de preços por SAP\n//         \"Montar Catálogo para Prompt\"  → aliquota\n// Output: JSON final do webhook\n// ─────────────────────────────────────────────────────────────────────────────\n\n// ── 1. Parsear resposta da LLM ───────────────────────────────────────────────\nfunction parseJsonLLM(data) {\n  // Tenta extrair o json da resposta — o nó LLM do n8n geralmente já entrega\n  // o content como string dentro de data.message.content ou data.text\n  const raw = $input.first().json.output\n\n  if (!raw) throw new Error('Resposta da LLM vazia ou em formato inesperado.');\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('LLM não retornou JSON válido: ' + cleaned.slice(0, 300));\n  }\n}\n\nconst llmRaw    = $input.first().json;\nconst llmOutput = parseJsonLLM(llmRaw);\n\n// ── 2. Montar índice de preços por SAP ──────────────────────────────────────\n// Acessa os produtos já com preço selecionado do nó anterior\nconst precoPorSap  = new Map();\nconst precoPorNome = new Map();\n\nfor (const item of $('Selecionar Preço por UF/Tipo').all()) {\n  const p = item.json;\n  if (p.sap)  precoPorSap.set(String(p.sap),   p);\n  if (p.nome) precoPorNome.set(p.nome.toUpperCase(), p);\n}\n\n// ── 3. Dados de contexto ─────────────────────────────────────────────────────\nconst aliquota = $('Montar Catálogo para Prompt').first().json.aliquota ?? 18;\n\n// ── 4. Helper: busca produto pelo SAP ou nome ────────────────────────────────\nfunction buscarProduto(sap, nome催ogo) {\n  if (sap && precoPorSap.has(String(sap))) {\n    return precoPorSap.get(String(sap));\n  }\n  if (nome催ogo) {\n    return precoPorNome.get(nome催ogo.toUpperCase()) ?? null;\n  }\n  return null;\n}\n\n// ── 5. Montar itens do orçamento ─────────────────────────────────────────────\nconst itensLLM    = llmOutput?.itens ?? [];\nconst itensFinal  = [];\nlet   totalGeral  = 0;\nconst alertas     = [];\n\nfor (const item of itensLLM) {\n  const produto = buscarProduto(item.sap, item.item_catalogo);\n\n  if (!produto) {\n    // Produto não encontrado no índice — registra alerta e pula\n    alertas.push(`Produto \"${item.item_catalogo}\" não encontrado na base de preços.`);\n    continue;\n  }\n\n  const quantidade    = Math.max(1, parseInt(item.item_quantidade) || 1);\n  const precoUnitario = produto.preco_aplicado;\n  const precoTotal    = parseFloat((precoUnitario * quantidade).toFixed(2));\n\n  totalGeral += precoTotal;\n\n  itensFinal.push({\n    item_solicitado: item.item_solicitado,\n    item_catalogo:   item.item_catalogo,\n    sap:             produto.sap,\n    item_preco:      precoUnitario,\n    item_quantidade: quantidade,\n    item_total:      precoTotal,\n    icms:            aliquota,\n  });\n}\n\n// ── 6. Montar campo \"obs\" final ───────────────────────────────────────────────\n// Combina obs da LLM com alertas técnicos de itens não encontrados\nconst obsPartes = [];\nif (llmOutput?.obs)          obsPartes.push(llmOutput.obs);\nif (alertas.length > 0)      obsPartes.push(alertas.join(' '));\n\nlet obs = obsPartes.join(' ').trim();\nif (!obs) {\n  obs = itensFinal.length === 1\n    ? 'Orçamento gerado com 1 item.'\n    : `Orçamento gerado com ${itensFinal.length} itens.`;\n}\n\n// ── 7. Resposta final ────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    status:           '200',\n    orcamento:         itensFinal,\n    total_orcamento:  parseFloat(totalGeral.toFixed(2)),\n    obs,\n  }\n}];"
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Nó: Montar Resposta Webhook\n// Input:  saída da LLM de orçamento\n// Ref:    \"Selecionar Preço por UF/Tipo\" → tabela de preços por SAP\n//         \"Montar Catálogo para Prompt\"  → aliquota\n// Output: JSON final do webhook\n// ─────────────────────────────────────────────────────────────────────────────\n\n// ── 1. Parsear resposta da LLM ───────────────────────────────────────────────\nfunction parseJsonLLM(data) {\n  // Tenta extrair o json da resposta — o nó LLM do n8n geralmente já entrega\n  // o content como string dentro de data.message.content ou data.text\n  const raw = $input.first().json.output\n\n  if (!raw) throw new Error('Resposta da LLM vazia ou em formato inesperado.');\n\n  const cleaned = String(raw)\n    .replace(/```json\\s*/gi, '')\n    .replace(/```\\s*/g, '')\n    .trim();\n\n  try {\n    return JSON.parse(cleaned);\n  } catch (_) {\n    const match = cleaned.match(/\\{[\\s\\S]*\\}/);\n    if (match) return JSON.parse(match[0]);\n    throw new Error('LLM não retornou JSON válido: ' + cleaned.slice(0, 300));\n  }\n}\n\nconst llmRaw    = $input.first().json;\nconst llmOutput = parseJsonLLM(llmRaw);\n\n// ── 2. Montar índice de preços por SAP ──────────────────────────────────────\n// Acessa os produtos já com preço selecionado do nó anterior\nconst precoPorSap  = new Map();\nconst precoPorNome = new Map();\n\nfor (const item of $('Selecionar Preço por UF/Tipo').all()) {\n  const p = item.json;\n  if (p.sap)  precoPorSap.set(String(p.sap),   p);\n  if (p.nome) precoPorNome.set(p.nome.toUpperCase(), p);\n}\n\n// ── 3. Dados de contexto ─────────────────────────────────────────────────────\nconst aliquota = $('Montar Catálogo para Prompt').first().json.aliquota ?? 18;\n\n// ── 4. Helper: busca produto pelo SAP ou nome ────────────────────────────────\nfunction buscarProduto(sap, nome催ogo) {\n  if (sap && precoPorSap.has(String(sap))) {\n    return precoPorSap.get(String(sap));\n  }\n  if (nome催ogo) {\n    return precoPorNome.get(nome催ogo.toUpperCase()) ?? null;\n  }\n  return null;\n}\n\n// ── 5. Montar itens do orçamento ─────────────────────────────────────────────\nconst itensLLM    = llmOutput?.itens ?? [];\nconst itensFinal  = [];\nlet   totalGeral  = 0;\nconst alertas     = [];\nconst status      = llmOutput?.status ?? '200';\n\nfor (const item of itensLLM) {\n  const produto = buscarProduto(item.sap, item.item_catalogo);\n\n  if (!produto) {\n    // Produto não encontrado no índice — registra alerta e pula\n    alertas.push(`Produto \"${item.item_catalogo}\" não encontrado na base de preços.`);\n    continue;\n  }\n\n  const quantidade    = Math.max(1, parseInt(item.item_quantidade) || 1);\n  const precoUnitario = produto.preco_aplicado;\n  const precoTotal    = parseFloat((precoUnitario * quantidade).toFixed(2));\n\n  totalGeral += precoTotal;\n\n  itensFinal.push({\n    item_solicitado: item.item_solicitado,\n    item_catalogo:   item.item_catalogo,\n    sap:             produto.sap,\n    item_preco:      precoUnitario,\n    item_quantidade: quantidade,\n    item_total:      precoTotal,\n    icms:            aliquota,\n  });\n}\n\n// ── 6. Montar campo \"obs\" final ───────────────────────────────────────────────\n// Combina obs da LLM com alertas técnicos de itens não encontrados\nconst obsPartes = [];\nif (llmOutput?.obs)          obsPartes.push(llmOutput.obs);\nif (alertas.length > 0)      obsPartes.push(alertas.join(' '));\n\nlet obs = obsPartes.join(' ').trim();\nif (!obs) {\n  obs = itensFinal.length === 1\n    ? 'Orçamento gerado com 1 item.'\n    : `Orçamento gerado com ${itensFinal.length} itens.`;\n}\n\n// ── 7. Resposta final ────────────────────────────────────────────────────────\nreturn [{\n  json: {\n    status:           status,\n    orcamento:        itensFinal,\n    total_orcamento:  parseFloat(totalGeral.toFixed(2)),\n    obs,\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -289,7 +269,8 @@
         320
       ],
       "id": "85aa46fb-e01f-40b2-a76b-86f7527427b1",
-      "name": "Montar Resposta Webhook"
+      "name": "Montar Resposta Webhook",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -309,39 +290,18 @@
         "promptType": "define",
         "text": "=E-mail:\n{{ $json.solicitacao }}",
         "options": {
-          "systemMessage": "Você é um assistente especialista em extração de dados. Sua única tarefa é ler e-mails de pedidos e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA OS CAMPOS DO JSON:\n1. \"uf\": A sigla do estado brasileiro do cliente. DEVE ser obrigatoriamente um destes valores: AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MT, MS, MG, PB, PR, PE, PI, RN, RS, RJ, RO, RR, SC, SP, SE, TO. Se o estado não for mencionado, retorne null.\n2. \"tipo\": Retorne \"pmc\" se o remetente for uma Pessoa Física comum. Retorne \"pf\" se o remetente for Pessoa Jurídica (como farmácias, clínicas, revendedores) ou se não for possível determinar com certeza. O padrão é \"pf\".\n3. \"itens\": Uma lista contendo apenas os nomes dos produtos, princípios ativos ou códigos SAP solicitados. Não inclua as quantidades (ex: remova \"10x\", \"5 caixas\", etc). Caso detecte um item de pedido com código SAP, retorne APENAS O NÚMERO.\n\nEXEMPLOS DE USO:\n\n---\nE-mail:\nOlá, gostaria de receber um orçamento dos seguintes produtos:\n4x ACHEFLAN CREM BGX30G\n10x ACETILCISTEINA 20MG XPE FRAM VDX120ML\n15x CLOR RANITIDINA 300MG COMR BLX20\nAt.te,\nJosé Pedidor\nJoseFarmacia - Rio de Janeiro - RJ\n\nSaída:\n{\"uf\": \"RJ\", \"tipo\": \"pf\", \"itens\": [\"ACHEFLAN CREM BGX30G\", \"ACETILCISTEINA 20MG XPE FRAM VDX120ML\", \"CLOR RANITIDINA 300MG COMR BLX20\"]}\n---\nE-mail:\nBom dia, sou o Marcos, moro em São Paulo (SP). Gostaria de saber o preço do paracetamol e também do item de código SAP 987654.\n\nSaída:\n{\"uf\": \"SP\", \"tipo\": \"pmc\", \"itens\": [\"paracetamol\", \"987654\"]}\n---\nE-mail:\nFavor cotar 5 frascos de dipirona em gotas.\n\nSaída:\n{\"uf\": null, \"tipo\": \"pf\", \"itens\": [\"dipirona em gotas\"]}\n---\n"
+          "systemMessage": "Você é um assistente especialista em extração de dados. Sua única tarefa é ler e-mails de pedidos e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA OS CAMPOS DO JSON:\n1. \"uf\": A sigla do estado brasileiro do cliente. DEVE ser obrigatoriamente um destes valores: AC, AL, AM, AP, BA, CE, DF, ES, GO, MA, MT, MS, MG, PB, PR, PE, PI, RN, RS, RJ, RO, RR, SC, SP, SE, TO. Se o estado não for mencionado, retorne null.\n2. \"tipo\": Retorne \"pmc\" se o remetente for uma Pessoa Física comum. Retorne \"pf\" se o remetente for Pessoa Jurídica (como farmácias, clínicas, revendedores) ou se não for possível determinar com certeza. O padrão é \"pmc\".\n3. \"itens\": Uma lista contendo apenas os nomes dos produtos, princípios ativos ou códigos SAP solicitados. Não inclua as quantidades (ex: remova \"10x\", \"5 caixas\", etc). Caso detecte um item de pedido com código SAP, retorne APENAS O NÚMERO.\n\nEXEMPLOS DE USO:\n\n---\nE-mail:\nOlá, gostaria de receber um orçamento dos seguintes produtos:\n4x ACHEFLAN CREM BGX30G\n10x ACETILCISTEINA 20MG XPE FRAM VDX120ML\n15x CLOR RANITIDINA 300MG COMR BLX20\nAt.te,\nJosé Pedidor\nJoseFarmacia - Rio de Janeiro - RJ\n\nSaída:\n{\"uf\": \"RJ\", \"tipo\": \"pf\", \"itens\": [\"ACHEFLAN CREM BGX30G\", \"ACETILCISTEINA 20MG XPE FRAM VDX120ML\", \"CLOR RANITIDINA 300MG COMR BLX20\"]}\n---\nE-mail:\nBom dia, sou o Marcos, moro em São Paulo (SP). Gostaria de saber o preço do paracetamol e também do item de código SAP 987654.\n\nSaída:\n{\"uf\": \"SP\", \"tipo\": \"pmc\", \"itens\": [\"paracetamol\", \"987654\"]}\n---\nE-mail:\nFavor cotar 5 frascos de dipirona em gotas.\n\nSaída:\n{\"uf\": null, \"tipo\": \"pf\", \"itens\": [\"dipirona em gotas\"]}\n---\n"
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
       "position": [
         -1200,
-        560
+        496
       ],
       "id": "90bf9b2e-a955-4e84-91e3-068a790c0e12",
-      "name": "Agente Separador de Produtos"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        -400,
-        800
-      ],
-      "id": "a6d0a800-9374-416c-9e8e-ec0ff944881a",
-      "name": "No Operation, do nothing"
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.noOp",
-      "typeVersion": 1,
-      "position": [
-        -400,
-        368
-      ],
-      "id": "f9fe6912-cf2c-4557-afe2-de6092094aa1",
-      "name": "No Operation, do nothing1"
+      "name": "Agente Separador de Produtos",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -380,7 +340,8 @@
         320
       ],
       "id": "4ff67044-a057-483c-a856-764cd81ff6c6",
-      "name": "Tratar resposta"
+      "name": "Tratar resposta",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -393,7 +354,8 @@
         512
       ],
       "id": "087479b7-9a96-4126-9467-fa3bb8571084",
-      "name": "Tratar resposta 2"
+      "name": "Tratar resposta 2",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {},
@@ -411,7 +373,7 @@
         "promptType": "define",
         "text": "=[E-MAIL DO CLIENTE]\n{{ $json.mensagem_original }}\n\n[CATÁLOGO DE PRODUTOS]\n{{ $json.catalogo_formatado }}\n\n[SAÍDA JSON]",
         "options": {
-          "systemMessage": "Você é um sistema especialista em montagem de orçamentos farmacêuticos B2B. Sua única tarefa é analisar um [E-MAIL DO CLIENTE] e um [CATÁLOGO DE PRODUTOS] e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA \"itens\":\n\n1. FILTRO RIGOROSO: O catálogo pode conter produtos que o cliente NÃO pediu (resultados do banco vetorial). Inclua APENAS os produtos que o cliente efetivamente solicitou. Descarte todos os outros.\n\n2. COMPLETUDE: Se o cliente pediu N produtos, o JSON deve ter exatamente N itens. Não descarte pedidos válidos nem adicione itens extras.\n\n3. \"item_solicitado\": O texto exato como o cliente nomeou o produto no e-mail (ex: \"aciclovir creme\", \"SAP 123456\"). Copie sem alterar.\n\n4. \"item_catalogo\": O nome EXATO da linha \"Produto:\" no catálogo que melhor corresponde ao pedido. Não altere nenhuma letra.\n\n5. \"sap\": O código SAP exato da linha \"SAP:\" do produto escolhido no catálogo.\n\n6. \"item_quantidade\": Extraia do e-mail seguindo esta prioridade:\n   a. \"10x PRODUTO\" ou \"10 x PRODUTO\" → 10\n   b. \"PRODUTO x10\" ou \"PRODUTO X10\" → 10\n   c. \"10 caixas/unidades/frascos de PRODUTO\" → 10\n   d. Sufixos como BLX, BLAX, FRX, CX dentro do nome do produto NÃO são quantidade.\n   e. Sem indicação de quantidade → use 1.\n\n7. \"confianca\": Copie EXATAMENTE o valor da linha \"Confianca:\" do produto no catálogo. Valores possíveis: MAXIMA, ALTA, MEDIA, BAIXA.\n\n8. DUPLICATAS NO CATÁLOGO: Se o mesmo produto aparecer mais de uma vez, use a primeira ocorrência. Um produto pedido = um item no JSON.\n\nREGRAS PARA \"obs\":\n\n- Se TODOS os itens têm confiança MAXIMA ou ALTA: retorne \"\".\n- Se ALGUM item tem confiança MEDIA: mencione que um ou mais produtos podem não corresponder exatamente ao solicitado e recomende confirmação.\n- Se ALGUM item tem confiança BAIXA: alerte claramente que o produto encontrado pode não ser o item pedido e recomende contato para confirmar.\n- Seja objetivo. Máximo de 2 frases."
+          "systemMessage": "Você é um sistema especialista em montagem de orçamentos farmacêuticos B2B. Sua única tarefa é analisar um [E-MAIL DO CLIENTE] e um [CATÁLOGO DE PRODUTOS] e retornar EXCLUSIVAMENTE um objeto JSON válido, sem marcações markdown e sem nenhum texto adicional.\n\nREGRAS PARA \"itens\":\n\n1. FILTRO RIGOROSO: O catálogo pode conter produtos que o cliente NÃO pediu (resultados do banco vetorial). Inclua APENAS os produtos que o cliente efetivamente solicitou. Descarte todos os outros.\n\n2. COMPLETUDE: Se o cliente pediu N produtos, o JSON deve ter exatamente N itens. Não descarte pedidos válidos nem adicione itens extras.\n\n3. \"item_solicitado\": O texto exato como o cliente nomeou o produto no e-mail (ex: \"aciclovir creme\", \"SAP 123456\"). Copie sem alterar.\n\n4. \"item_catalogo\": O nome EXATO da linha \"Produto:\" no catálogo que melhor corresponde ao pedido. Não altere nenhuma letra.\n\n5. \"sap\": O código SAP exato da linha \"SAP:\" do produto escolhido no catálogo.\n\n6. \"item_quantidade\": Extraia do e-mail seguindo esta prioridade:\n   a. \"10x PRODUTO\" ou \"10 x PRODUTO\" → 10\n   b. \"PRODUTO x10\" ou \"PRODUTO X10\" → 10\n   c. \"10 caixas/unidades/frascos de PRODUTO\" → 10\n   d. Sufixos como BLX, BLAX, FRX, CX dentro do nome do produto NÃO são quantidade.\n   e. Sem indicação de quantidade → use 1.\n\n7. \"confianca\": Copie EXATAMENTE o valor da linha \"Confianca:\" do produto no catálogo. Valores possíveis: MAXIMA, ALTA, MEDIA, BAIXA.\n\n8. DUPLICATAS NO CATÁLOGO: Se o mesmo produto aparecer mais de uma vez, use a primeira ocorrência. Um produto pedido = um item no JSON.\n\nREGRAS PARA \"obs\":\n\n- Se TODOS os itens têm confiança MAXIMA ou ALTA: retorne \"\".\n- Se ALGUM item tem confiança MEDIA ou BAIXA: retorne \"[LISTE PRODUTOS DE CONFIANÇA MEDIA OU BAIXA QUE FORAM INCLUÍDOS] pode/podem não corresponder exatamente ao solicitado, favor confirmar.\"\n- Seja objetivo. Máximo de 2 frases.\n\nIMPORTANTE:\n- Se o cliente não foi específico quanto ao nome ou princípio ativo de um produto que está no catálogo e não for possível determinar com certeza qual é o produto que ele deseja, retorne nos itens apenas os produtos que não forem ambíguos, ou uma lista vazia caso todos sejam, e retorne no campo \"obs\" o seguinte: \"Solicitação ambígua. Existem apresentações diferentes para '[PRODUTO QUE O CLIENTE PEDIU]', como [DIFERENTES OPÇÕES DO CATÁLOGO]. Informe o produto específico.\". Caso este seja o caso e a lista de itens FINAL fique vazia, adicione um campo \"status\" no JSON com o valor \"422\".\n- Se nenhum produto que o cliente pediu tiver um correspondente no catálogo, retorne uma lista de itens vazia e o campo \"obs\" da seguinte forma: \"Produto(s) não encontrado(s) no nosso estoque\". Além disso, adicione um campo \"status\" no JSON com o valor \"404\"."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
@@ -421,7 +383,237 @@
         320
       ],
       "id": "ca67dd3d-0a0c-49ae-88dc-9ef289ae7f76",
-      "name": "Agente Gerador de Orçamento"
+      "name": "Agente Gerador de Orçamento",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        800
+      ],
+      "id": "a6d0a800-9374-416c-9e8e-ec0ff944881a",
+      "name": "Não existe SAP"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        368
+      ],
+      "id": "f9fe6912-cf2c-4557-afe2-de6092094aa1",
+      "name": "Não existe Nome"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://18ce111f-a1d5-4250-a0e9-01eb7e14c6e0.sa-east-1-0.aws.cloud.qdrant.io/collections/catalogo/points/scroll",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"limit\": 1,\n  \"with_payload\": true,\n  \"with_vector\": false,\n  \"filter\": {\n    \"must\": [\n      {\n        \"key\": \"metadata.sap\",\n        \"match\": {\n          \"value\": \"{{ $json.sap }}\"\n        }\n      }\n    ]\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        112,
+        704
+      ],
+      "id": "48905b72-450f-46a4-b9d2-d1a829069336",
+      "name": "Buscar produto por SAP",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const GRUPO = 'Entrada';\nconst MENSAGENS = {\n  'Extrair Solicitacao': \"Campo 'solicitacao' ausente ou inválido no body da requisição.\",\n};\n\nconst item = $input.first();\n\n// n8n injeta o erro em $json.error (v0.232+)\nconst error = item.json?.error ?? {};\nconst nodeOrigin = $prevNode.name\n// Mensagem amigável: usa mapa se o nó for reconhecido, senão usa a mensagem raw\nconst mensagemAmigavel = MENSAGENS[nodeOrigin] ?? error;\n\n// Detalhe técnico para o log (não vai ao cliente, vai ao Stop and Error)\nconst detalhe = [\n  `Grupo: ${GRUPO}`,\n  `Nó: ${nodeOrigin}`,\n  `Mensagem: ${error}`,\n].filter(Boolean).join(' | ');\n\nreturn [{\n  json: {\n    // Resposta ao cliente (vai para o Respond to Webhook)\n    status:          '500',\n    orcamento:       [],\n    total_orcamento: 0,\n    obs:             `Erro interno no processamento: ${mensagemAmigavel}`,\n\n    // Metadados para o Stop and Error (não vai ao cliente)\n    _erro_interno: detalhe,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1264,
+        1088
+      ],
+      "id": "b9482d60-fc23-4ad8-86a2-393ba6c06a12",
+      "name": "Tratar erro - Entrada"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, orcamento: $json.orcamento, total_orcamento: $json.total_orcamento, obs: $json.obs } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -1072,
+        1088
+      ],
+      "id": "93135bd0-5fac-41fe-b363-41873fa30954",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $('Tratar erro - Entrada').item.json._erro_interno }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        1088
+      ],
+      "id": "7761daf3-3ae0-478f-99af-ca614443da84",
+      "name": "Erro entrada"
+    },
+    {
+      "parameters": {
+        "content": "# Tratamento de Erros",
+        "height": 304,
+        "width": 4080,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1536,
+        960
+      ],
+      "typeVersion": 1,
+      "id": "a71a7fd5-4b84-4ae0-b4bc-71cbb8d54551",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, orcamento: $json.orcamento, total_orcamento: $json.total_orcamento, obs: $json.obs } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -496,
+        1088
+      ],
+      "id": "829d58d3-71b8-4f79-a9f8-8a92cd515a05",
+      "name": "Respond to Webhook2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error outputs conectados: Agente Separador de Produtos, Parsear Itens LLM 1\nconst GRUPO = 'Extração LLM';\nconst MENSAGENS = {\n  'Agente Separador de Produtos': 'Falha na comunicação com o modelo de linguagem (timeout ou rate limit).',\n  'Parsear Itens LLM 1':         'O modelo retornou uma resposta em formato inesperado (JSON inválido).',\n};\n\nconst item = $input.first();\n\n// n8n injeta o erro em $json.error (v0.232+)\nconst error = item.json?.error ?? {};\nconst nodeOrigin = $prevNode.name\n// Mensagem amigável: usa mapa se o nó for reconhecido, senão usa a mensagem raw\nconst mensagemAmigavel = MENSAGENS[nodeOrigin] ?? error;\n\n// Detalhe técnico para o log (não vai ao cliente, vai ao Stop and Error)\nconst detalhe = [\n  `Grupo: ${GRUPO}`,\n  `Nó: ${nodeOrigin}`,\n  `Mensagem: ${error}`,\n].filter(Boolean).join(' | ');\n\nreturn [{\n  json: {\n    // Resposta ao cliente (vai para o Respond to Webhook)\n    status:          '500',\n    orcamento:       [],\n    total_orcamento: 0,\n    obs:             `Erro interno no processamento: ${mensagemAmigavel}`,\n\n    // Metadados para o Stop and Error (não vai ao cliente)\n    _erro_interno: detalhe,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        1088
+      ],
+      "id": "46a24f28-20c0-4f14-a8ec-a0c4b321db97",
+      "name": "Tratar erro - Extração LLM"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $('Tratar erro - Extração LLM').item.json._erro_interno }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        1088
+      ],
+      "id": "aa9669be-e0e3-4f25-ad89-59da89c37032",
+      "name": "Erro extração LLM"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, orcamento: $json.orcamento, total_orcamento: $json.total_orcamento, obs: $json.obs } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        592,
+        1072
+      ],
+      "id": "9d0e99e6-0855-4036-a1c6-10ef5f443b6c",
+      "name": "Respond to Webhook3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error outputs: Qdrant Vector Store, HTTP Request, Tratar resposta, Tratar resposta 2\nconst GRUPO = 'Busca Vetorial';\nconst MENSAGENS = {\n  'Qdrant Vector Store': 'Banco vetorial indisponível (busca semântica falhou).',\n  'Buscar produto por SAP': 'Banco vetorial indisponível (busca por SAP falhou).',\n  'Tratar resposta': 'Falha ao processar resposta do Qdrant (busca vetorial).',\n  'Tratar resposta 2': 'Falha ao processar resposta do Qdrant (busca SAP).',\n};\n\nconst item = $input.first();\n\n// n8n injeta o erro em $json.error (v0.232+)\nconst error = item.json?.error ?? {};\nconst nodeOrigin = $prevNode.name\n// Mensagem amigável: usa mapa se o nó for reconhecido, senão usa a mensagem raw\nconst mensagemAmigavel = MENSAGENS[nodeOrigin] ?? error;\n\n// Detalhe técnico para o log (não vai ao cliente, vai ao Stop and Error)\nconst detalhe = [\n  `Grupo: ${GRUPO}`,\n  `Nó: ${nodeOrigin}`,\n  `Mensagem: ${error}`,\n].filter(Boolean).join(' | ');\n\nreturn [{\n  json: {\n    // Resposta ao cliente (vai para o Respond to Webhook)\n    status:          '500',\n    orcamento:       [],\n    total_orcamento: 0,\n    obs:             `Erro interno no processamento: ${mensagemAmigavel}`,\n\n    // Metadados para o Stop and Error (não vai ao cliente)\n    _erro_interno: detalhe,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        1072
+      ],
+      "id": "16bce178-837c-474b-b601-541318c331a6",
+      "name": "Tratar erro - Busca Vetorial"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $('Tratar erro - Busca Vetorial').item.json._erro_interno }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        768,
+        1072
+      ],
+      "id": "1ef31f02-2653-4ce5-b716-4c71672ad07a",
+      "name": "Erro Busca Vetorial"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: $json.status, orcamento: $json.orcamento, total_orcamento: $json.total_orcamento, obs: $json.obs } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1840,
+        1072
+      ],
+      "id": "9b808b50-a7cc-4370-ba5c-eb796ba9173d",
+      "name": "Respond to Webhook4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Error outputs: Selecionar Preço, Montar Catálogo, Agente Gerador, Montar Resposta\nconst GRUPO = 'Geração de Orçamento';\nconst MENSAGENS = {\n  'Selecionar Preço por UF/Tipo':  'Falha ao selecionar preço (tabela ICMS ou dados do produto inconsistentes).',\n  'Montar Catálogo para Prompt':   'Falha ao preparar catálogo para o agente de orçamento.',\n  'Agente Gerador de Orçamento':   'Falha na comunicação com o modelo de linguagem (geração do orçamento).',\n  'Montar Resposta Webhook':       'Falha ao montar a resposta final (dados do orçamento inconsistentes).',\n};\n\nconst item = $input.first();\n\n// n8n injeta o erro em $json.error (v0.232+)\nconst error = item.json?.error ?? {};\nconst nodeOrigin = $prevNode.name\n// Mensagem amigável: usa mapa se o nó for reconhecido, senão usa a mensagem raw\nconst mensagemAmigavel = MENSAGENS[nodeOrigin] ?? error;\n\n// Detalhe técnico para o log (não vai ao cliente, vai ao Stop and Error)\nconst detalhe = [\n  `Grupo: ${GRUPO}`,\n  `Nó: ${nodeOrigin}`,\n  `Mensagem: ${error}`,\n].filter(Boolean).join(' | ');\n\nreturn [{\n  json: {\n    // Resposta ao cliente (vai para o Respond to Webhook)\n    status:          '500',\n    orcamento:       [],\n    total_orcamento: 0,\n    obs:             `Erro interno no processamento: ${mensagemAmigavel}`,\n\n    // Metadados para o Stop and Error (não vai ao cliente)\n    _erro_interno: detalhe,\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        1072
+      ],
+      "id": "33d20da2-debd-4a4f-87a6-0466f0453de5",
+      "name": "Tratar erro - Geração de Orçamento"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $('Tratar erro - Geração de Orçamento').item.json._erro_interno }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        1072
+      ],
+      "id": "8b667b75-a4ef-4477-9f19-bc144699e8da",
+      "name": "Erro Geração de Orçamento"
     }
   ],
   "pinData": {},
@@ -434,6 +626,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Tratar erro - Entrada",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -442,6 +641,13 @@
         [
           {
             "node": "Agente Separador de Produtos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Entrada",
             "type": "main",
             "index": 0
           }
@@ -458,6 +664,13 @@
           },
           {
             "node": "Existe SAP?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Extração LLM",
             "type": "main",
             "index": 0
           }
@@ -497,7 +710,7 @@
         ],
         [
           {
-            "node": "No Operation, do nothing",
+            "node": "Não existe SAP",
             "type": "main",
             "index": 0
           }
@@ -515,7 +728,7 @@
         ],
         [
           {
-            "node": "No Operation, do nothing1",
+            "node": "Não existe Nome",
             "type": "main",
             "index": 0
           }
@@ -542,6 +755,15 @@
             "index": 0
           }
         ]
+      ],
+      "main": [
+        [
+          {
+            "node": "Tratar erro - Busca Vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
     "Split Out1": {
@@ -549,17 +771,6 @@
         [
           {
             "node": "Buscar todos os nomes no banco vetorial",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "HTTP Request": {
-      "main": [
-        [
-          {
-            "node": "Buscar todos os SAPs no banco vetorial",
             "type": "main",
             "index": 0
           }
@@ -585,6 +796,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Tratar erro - Geração de Orçamento",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -593,6 +811,13 @@
         [
           {
             "node": "Agente Gerador de Orçamento",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Geração de Orçamento",
             "type": "main",
             "index": 0
           }
@@ -607,6 +832,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Tratar erro - Geração de Orçamento",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -615,6 +847,13 @@
         [
           {
             "node": "Parsear Itens LLM 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Extração LLM",
             "type": "main",
             "index": 0
           }
@@ -650,7 +889,7 @@
         ],
         [
           {
-            "node": "HTTP Request",
+            "node": "Buscar produto por SAP",
             "type": "main",
             "index": 0
           }
@@ -665,6 +904,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Tratar erro - Busca Vetorial",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -675,6 +921,13 @@
             "node": "Mesclar respostas",
             "type": "main",
             "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Busca Vetorial",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -698,16 +951,129 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Tratar erro - Geração de Orçamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar produto por SAP": {
+      "main": [
+        [
+          {
+            "node": "Buscar todos os SAPs no banco vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tratar erro - Busca Vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar erro - Entrada": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Erro entrada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook2": {
+      "main": [
+        [
+          {
+            "node": "Erro extração LLM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar erro - Extração LLM": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook3": {
+      "main": [
+        [
+          {
+            "node": "Erro Busca Vetorial",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar erro - Busca Vetorial": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook4": {
+      "main": [
+        [
+          {
+            "node": "Erro Geração de Orçamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar erro - Geração de Orçamento": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook4",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "4987e689-6db6-4b30-af16-d5cb839a7ce9",
+  "versionId": "b1918a75-a905-4c8e-b227-5032769a1800",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "704c04ec2a4650aa2d464b066d7255c3fcce78ca5bbdb349dfdaf9c6d0a943a6"

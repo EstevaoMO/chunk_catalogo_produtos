@@ -15,15 +15,21 @@
           }
         }
       },
-      "id": "b82f17b6-bec6-4484-bfcb-7cca8db240a8",
+      "id": "5361f710-d663-4d5b-8f14-c0a4d466cffe",
       "name": "Deletar Colecao Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2176,
-        672
+        1072,
+        752
       ],
-      "executeOnce": true
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
     },
     {
       "parameters": {
@@ -42,15 +48,21 @@
           }
         }
       },
-      "id": "74c1649f-95a1-4ec0-becb-ef17f9f143bd",
+      "id": "34bfe4c3-a5de-4c01-9feb-aff130513093",
       "name": "Criar Colecao Qdrant",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2400,
-        672
+        1296,
+        752
       ],
-      "executeOnce": true
+      "executeOnce": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
+      }
     },
     {
       "parameters": {
@@ -59,10 +71,10 @@
       "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
       "typeVersion": 1,
       "position": [
-        3136,
-        640
+        2272,
+        752
       ],
-      "id": "965c5453-de6f-4bbf-9daa-199c8277e65b",
+      "id": "1332404a-47f7-41c4-88d8-61144cf749af",
       "name": "Token Splitter"
     },
     {
@@ -74,10 +86,10 @@
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1.1,
       "position": [
-        1952,
-        672
+        848,
+        752
       ],
-      "id": "bf986adb-90b7-43ba-88e7-83ef35c6c1e4",
+      "id": "daf49478-3919-46ac-9d76-bb1695d9c0da",
       "name": "Ler CSV",
       "onError": "continueErrorOutput"
     },
@@ -98,26 +110,12 @@
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.5,
       "position": [
-        1728,
-        672
+        624,
+        752
       ],
-      "id": "8eeab6b6-d5ea-4a2f-bc44-7f9cc3df6fa1",
+      "id": "aa6d7c2b-f233-4665-97c3-b3a9c217bdd3",
       "name": "Form enviar CSV",
-      "webhookId": "65bb666c-5763-49ce-9c7a-59ffb1559424"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Este script transforma cada linha do CSV em um formato ideal para o Vector Store\nconst items = $('Ler CSV').all();\nreturn items.map(item => {\n  // Remove BOM (caractere invisível) dos nomes das colunas\n  const data = Object.fromEntries(\n    Object.entries(item.json).map(([key, value]) => [\n      key.replace(/^\\uFEFF/, ''),\n      value\n    ])\n  );\n  \n  // 1. Criamos um \"Texto Rico\" apenas com dados relevantes para a busca semântica\n  //const conteudo_semantico = `Produto: ${data['APRESENTAÇÃO']}. Princípio Ativo: ${data['PRINCIPIO ATIVO']}.`;\n  const conteudo_semantico = `${data['APRESENTAÇÃO']}`;\n  \n  // 2. Retornamos o texto para a IA, junto com os metadados baseados no seu script Python\n  return {\n    json: {\n      conteudo_semantico: conteudo_semantico, // <-- O que vai para o Embeddings\n      \n      // Metadados (O que vai para o Qdrant)\n      sap: data['CÓDIGO SAP'],\n      nome: data['APRESENTAÇÃO'],\n      principio_ativo: data['PRINCIPIO ATIVO'],\n      familia: data['FAMÍLIA'],\n      ncm: data['NCM (CLASS FISCAL)'],\n      tipo: data['TIPO DE MEDICAMENTO'],\n      tarja: data['TARJA'],\n      qtde: data['QTDE'],\n      \n      // Construindo o dicionário de preços igual ao script Python\n      precos: {\n        icms_0:   { pf: data[\"ICMS 0 % (PF)\"], pmc: data[\"ICMS 0 % (PMC)\"] },\n        icms_12:  { pf: data[\"ICMS 12 %  (PF)\"], pmc: data[\"ICMS 12 % (PMC) \"] },\n        icms_17:  { pf: data[\"ICMS 17 % (PF)\"], pmc: data[\"ICMS 17 % (PMC)\"] },\n        icms_175: { pf: data[\"ICMS 17,5 % (PF)\"], pmc: data[\"ICMS 17,5 % (PMC)\"] },\n        icms_18:  { pf: data[\"ICMS 18 %  (PF)\"], pmc: data[\"ICMS 18 %  (PMC)\"] },\n        icms_20:  { pf: data[\"ICMS 20 % (PF)\"], pmc: data[\"ICMS 20 % (PMC)\"] },\n        icms_17_ac_rr: { pf: data[\"ICMS 17 % (ALC) AC/RR (PF)\"], pmc: data[\"ICMS 17 % (ALC) AC/RR (PMC)\"] },\n        icms_175_ro:   { pf: data[\"ICMS 17,5 % (ALC) RO (PF)\"],   pmc: data[\"ICMS 17,5 % (ALC) RO (PMC)\"] },\n        icms_18_am_ap: { pf: data[\"ICMS 18 % (ALC) AM/AP (PF)\"],   pmc: data[\"ICMS 18 % (ALC) AM/AP (PMC)\"] }\n      },\n      \n      ean: data['CÓDIGO EAN'] ? String(data['CÓDIGO EAN']) : null,\n      registro_ms: data['REGISTRO MS'] ? String(data['REGISTRO MS']) : null\n    }\n  };\n});"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        2624,
-        672
-      ],
-      "id": "095b128d-731b-438f-ae05-9099f1a6cf6a",
-      "name": "Gerar chunks",
-      "onError": "continueErrorOutput"
+      "webhookId": "8dbc6cdb-8846-44bc-ba50-1057913610ca"
     },
     {
       "parameters": {
@@ -133,11 +131,17 @@
       "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
       "typeVersion": 1.3,
       "position": [
-        2928,
-        320
+        2064,
+        432
       ],
-      "id": "d594d16b-0190-47b8-b6f8-6afe8ce125bc",
-      "name": "Inserir no Qdrant"
+      "id": "676d9466-f147-4786-8b49-43187d914d3d",
+      "name": "Inserir no Qdrant",
+      "credentials": {
+        "qdrantApi": {
+          "id": "ozX3YuoPvQo5DNSl",
+          "name": "Qdrant account"
+        }
+      }
     },
     {
       "parameters": {
@@ -147,11 +151,17 @@
       "type": "@n8n/n8n-nodes-langchain.embeddingsHuggingFaceInference",
       "typeVersion": 1,
       "position": [
-        2928,
-        688
+        2064,
+        800
       ],
-      "id": "77e0ad44-384d-42b5-a15d-25641f5adb32",
+      "id": "ebb6a4a2-96b1-489c-a5b3-4d9abe5f685f",
       "name": "Embeddings HuggingFace",
+      "credentials": {
+        "huggingFaceApi": {
+          "id": "nWPQSQPxRlJH3Fv9",
+          "name": "Hugging Face account"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -205,10 +215,10 @@
       "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
       "typeVersion": 1.1,
       "position": [
-        3056,
-        496
+        2192,
+        608
       ],
-      "id": "6d9c4c50-4a64-41ed-83e7-3e70e928d4a8",
+      "id": "86daf0c7-ec58-4d83-afd3-59907e030347",
       "name": "Data Loader",
       "onError": "continueErrorOutput"
     },
@@ -236,26 +246,19 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        3344,
-        320
+        2480,
+        432
       ],
-      "id": "c4bf68fb-0b0f-4b84-b1b8-a0f9711e771c",
+      "id": "c7259788-93ed-4281-b84d-594d62e84877",
       "name": "Criar index SAP",
       "executeOnce": true,
-      "onError": "continueErrorOutput"
-    },
-    {
-      "parameters": {
-        "errorMessage": "={{ $json.erro }}"
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3v17KreZ6RM9e3pR",
+          "name": "Qdrant Header"
+        }
       },
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        2192,
-        912
-      ],
-      "id": "c1c2443a-cbac-4bda-967b-a1a53379d147",
-      "name": "Stop and Error"
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -266,11 +269,11 @@
       },
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        1904,
-        848
+        1040,
+        960
       ],
       "typeVersion": 1,
-      "id": "15d5b0f8-c209-4fc6-8ab7-4528e04ea07f",
+      "id": "62bbf68e-b478-4c5c-b549-d79d63d43885",
       "name": "Sticky Note"
     },
     {
@@ -280,10 +283,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2032,
-        912
+        1168,
+        1024
       ],
-      "id": "0380bddd-9a15-4189-a698-484789270f48",
+      "id": "22477b77-9ba7-4d9a-986c-2896ee00d408",
       "name": "Validar CSV"
     },
     {
@@ -293,37 +296,11 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2736,
-        912
+        1872,
+        1024
       ],
-      "id": "022508e8-9aaa-4430-83f8-4eb8a770d1dd",
+      "id": "a66cf4c4-91dd-45d6-a6ad-0b1e890b2737",
       "name": "Validar chunks"
-    },
-    {
-      "parameters": {
-        "errorMessage": "={{ $json.erro }}"
-      },
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        2912,
-        912
-      ],
-      "id": "ca3173b1-3e77-4432-a96e-63f92812b52b",
-      "name": "Stop and Error2"
-    },
-    {
-      "parameters": {
-        "errorMessage": "={{ $json.erro }}"
-      },
-      "type": "n8n-nodes-base.stopAndError",
-      "typeVersion": 1,
-      "position": [
-        3584,
-        912
-      ],
-      "id": "a58662c8-7f8f-4350-96f1-1ece8b06132f",
-      "name": "Stop and Error3"
     },
     {
       "parameters": {
@@ -332,11 +309,90 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3408,
-        912
+        2544,
+        1024
       ],
-      "id": "96675e53-6c70-4ef1-a415-5db76a255e12",
+      "id": "592de83e-2751-4c41-9c84-4768e5856ed7",
       "name": "Validar qdrant"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Este script transforma cada linha do CSV em um formato ideal para o Vector Store\nconst items = $('Ler CSV').all();\nreturn items.map(item => {\n  // Remove BOM (caractere invisível) dos nomes das colunas\n  const data = Object.fromEntries(\n    Object.entries(item.json).map(([key, value]) => [\n      key.replace(/^\\uFEFF/, ''),\n      value\n    ])\n  );\n  \n  // 1. Criamos um \"Texto Rico\" apenas com dados relevantes para a busca semântica\n  //const conteudo_semantico = `Produto: ${data['APRESENTAÇÃO']}. Princípio Ativo: ${data['PRINCIPIO ATIVO']}.`;\n  const conteudo_semantico = `${data['APRESENTAÇÃO']}`;\n  \n  // 2. Retornamos o texto para a IA, junto com os metadados baseados no seu script Python\n  return {\n    json: {\n      conteudo_semantico: conteudo_semantico, // <-- O que vai para o Embeddings\n      \n      // Metadados (O que vai para o Qdrant)\n      sap: data['CÓDIGO SAP'],\n      nome: data['APRESENTAÇÃO'],\n      principio_ativo: data['PRINCIPIO ATIVO'],\n      familia: data['FAMÍLIA'],\n      ncm: data['NCM (CLASS FISCAL)'],\n      tipo: data['TIPO DE MEDICAMENTO'],\n      tarja: data['TARJA'],\n      qtde: data['QTDE'],\n      \n      // Construindo o dicionário de preços igual ao script Python\n      precos: {\n        icms_0:   { pf: data[\"ICMS 0 % (PF)\"], pmc: data[\"ICMS 0 % (PMC)\"] },\n        icms_12:  { pf: data[\"ICMS 12 %  (PF)\"], pmc: data[\"ICMS 12 % (PMC) \"] },\n        icms_17:  { pf: data[\"ICMS 17 % (PF)\"], pmc: data[\"ICMS 17 % (PMC)\"] },\n        icms_175: { pf: data[\"ICMS 17,5 % (PF)\"], pmc: data[\"ICMS 17,5 % (PMC)\"] },\n        icms_18:  { pf: data[\"ICMS 18 %  (PF)\"], pmc: data[\"ICMS 18 %  (PMC)\"] },\n        icms_20:  { pf: data[\"ICMS 20 % (PF)\"], pmc: data[\"ICMS 20 % (PMC)\"] },\n        icms_17_ac_rr: { pf: data[\"ICMS 17 % (ALC) AC/RR (PF)\"], pmc: data[\"ICMS 17 % (ALC) AC/RR (PMC)\"] },\n        icms_175_ro:   { pf: data[\"ICMS 17,5 % (ALC) RO (PF)\"],   pmc: data[\"ICMS 17,5 % (ALC) RO (PMC)\"] },\n        icms_18_am_ap: { pf: data[\"ICMS 18 % (ALC) AM/AP (PF)\"],   pmc: data[\"ICMS 18 % (ALC) AM/AP (PMC)\"] }\n      },\n      \n      ean: data['CÓDIGO EAN'] ? String(data['CÓDIGO EAN']) : null,\n      registro_ms: data['REGISTRO MS'] ? String(data['REGISTRO MS']) : null\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        832
+      ],
+      "id": "c36b0440-f9e5-413e-be94-644b32fb7ef4",
+      "name": "Gerar chunks nome",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Este script transforma cada linha do CSV em um formato ideal para o Vector Store\nconst items = $('Ler CSV').all();\nreturn items.map(item => {\n  // Remove BOM (caractere invisível) dos nomes das colunas\n  const data = Object.fromEntries(\n    Object.entries(item.json).map(([key, value]) => [\n      key.replace(/^\\uFEFF/, ''),\n      value\n    ])\n  );\n  \n  // 1. Criamos um \"Texto Rico\" apenas com dados relevantes para a busca semântica\n  const conteudo_semantico = `${data['PRINCIPIO ATIVO']}`;\n  \n  // 2. Retornamos o texto para a IA, junto com os metadados baseados no seu script Python\n  return {\n    json: {\n      conteudo_semantico: conteudo_semantico, // <-- O que vai para o Embeddings\n      \n      // Metadados (O que vai para o Qdrant)\n      sap: data['CÓDIGO SAP'],\n      nome: data['APRESENTAÇÃO'],\n      principio_ativo: data['PRINCIPIO ATIVO'],\n      familia: data['FAMÍLIA'],\n      ncm: data['NCM (CLASS FISCAL)'],\n      tipo: data['TIPO DE MEDICAMENTO'],\n      tarja: data['TARJA'],\n      qtde: data['QTDE'],\n      \n      // Construindo o dicionário de preços igual ao script Python\n      precos: {\n        icms_0:   { pf: data[\"ICMS 0 % (PF)\"], pmc: data[\"ICMS 0 % (PMC)\"] },\n        icms_12:  { pf: data[\"ICMS 12 %  (PF)\"], pmc: data[\"ICMS 12 % (PMC) \"] },\n        icms_17:  { pf: data[\"ICMS 17 % (PF)\"], pmc: data[\"ICMS 17 % (PMC)\"] },\n        icms_175: { pf: data[\"ICMS 17,5 % (PF)\"], pmc: data[\"ICMS 17,5 % (PMC)\"] },\n        icms_18:  { pf: data[\"ICMS 18 %  (PF)\"], pmc: data[\"ICMS 18 %  (PMC)\"] },\n        icms_20:  { pf: data[\"ICMS 20 % (PF)\"], pmc: data[\"ICMS 20 % (PMC)\"] },\n        icms_17_ac_rr: { pf: data[\"ICMS 17 % (ALC) AC/RR (PF)\"], pmc: data[\"ICMS 17 % (ALC) AC/RR (PMC)\"] },\n        icms_175_ro:   { pf: data[\"ICMS 17,5 % (ALC) RO (PF)\"],   pmc: data[\"ICMS 17,5 % (ALC) RO (PMC)\"] },\n        icms_18_am_ap: { pf: data[\"ICMS 18 % (ALC) AM/AP (PF)\"],   pmc: data[\"ICMS 18 % (ALC) AM/AP (PMC)\"] }\n      },\n      \n      ean: data['CÓDIGO EAN'] ? String(data['CÓDIGO EAN']) : null,\n      registro_ms: data['REGISTRO MS'] ? String(data['REGISTRO MS']) : null\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        656
+      ],
+      "id": "070cf885-7494-42e6-9990-981566928c88",
+      "name": "Gerar chunks principio ativo",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1824,
+        720
+      ],
+      "id": "bc8e26ab-022e-4fa9-9778-7244971cdfe6",
+      "name": "Mesclar chunks",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        1024
+      ],
+      "id": "76b6707d-1c79-460c-a177-2dbbc1ddb65c",
+      "name": "Erro CSV"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        1024
+      ],
+      "id": "363619e8-036c-4001-8e31-c7573a66511f",
+      "name": "Erro Chunks"
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.erro }}"
+      },
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        2720,
+        1024
+      ],
+      "id": "17421b28-efd7-4ebf-962f-ee392d9ff6c4",
+      "name": "Erro Qdrant"
     }
   ],
   "pinData": {},
@@ -349,20 +405,23 @@
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Criar Colecao Qdrant": {
       "main": [
         [
           {
-            "node": "Gerar chunks",
+            "node": "Gerar chunks nome",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gerar chunks principio ativo",
             "type": "main",
             "index": 0
           }
-        ],
-        []
+        ]
       ]
     },
     "Token Splitter": {
@@ -399,25 +458,6 @@
         [
           {
             "node": "Ler CSV",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
-      ]
-    },
-    "Gerar chunks": {
-      "main": [
-        [
-          {
-            "node": "Inserir no Qdrant",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Validar chunks",
             "type": "main",
             "index": 0
           }
@@ -479,7 +519,7 @@
       "main": [
         [
           {
-            "node": "Stop and Error",
+            "node": "Erro CSV",
             "type": "main",
             "index": 0
           }
@@ -490,7 +530,7 @@
       "main": [
         [
           {
-            "node": "Stop and Error2",
+            "node": "Erro Chunks",
             "type": "main",
             "index": 0
           }
@@ -501,7 +541,7 @@
       "main": [
         [
           {
-            "node": "Stop and Error3",
+            "node": "Erro Qdrant",
             "type": "main",
             "index": 0
           }
@@ -519,6 +559,60 @@
           }
         ]
       ]
+    },
+    "Gerar chunks nome": {
+      "main": [
+        [
+          {
+            "node": "Mesclar chunks",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Validar chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gerar chunks principio ativo": {
+      "main": [
+        [
+          {
+            "node": "Mesclar chunks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validar chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesclar chunks": {
+      "main": [
+        [
+          {
+            "node": "Inserir no Qdrant",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validar chunks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -526,11 +620,12 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "799bde5d-2225-49a6-8397-aa7169928951",
+  "versionId": "cb7474c8-9238-4539-ab67-567f63c3a502",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "6b7f71d3005fa263b3298650bbffb5e3c336f215eb611cd1970954ed0ac9b9e0"
+    "instanceId": "704c04ec2a4650aa2d464b066d7255c3fcce78ca5bbdb349dfdaf9c6d0a943a6"
   },
-  "id": "OYMFw5JZ3hO1B9NI",
+  "nodeGroups": [],
+  "id": "VpkrlBHm2IbvCccB",
   "tags": []
 }
